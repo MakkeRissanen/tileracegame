@@ -9,6 +9,7 @@ interface TeamsSidebarProps {
   isDark: boolean;
   myTeam: Team | null;
   onCompleteTile: (teamId: string, playerNames: string[]) => void;
+  onUsePowerup: () => void;
 }
 
 export default function TeamsSidebar({
@@ -16,6 +17,7 @@ export default function TeamsSidebar({
   isDark,
   myTeam,
   onCompleteTile,
+  onUsePowerup,
 }: TeamsSidebarProps) {
   const MAX_TILE = 56;
   const [showPlayerModal, setShowPlayerModal] = useState(false);
@@ -158,6 +160,19 @@ export default function TeamsSidebar({
                 >
                   Complete Tile
                 </Button>
+                
+                {/* Use Powerup Button */}
+                {team.inventory && team.inventory.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    isDark={isDark}
+                    className="w-full"
+                    onClick={onUsePowerup}
+                    disabled={team.powerupCooldown}
+                  >
+                    {team.powerupCooldown ? "🔒 Powerup Cooldown" : "🎁 Use Powerup"}
+                  </Button>
+                )}
               </div>
             )}
           </div>

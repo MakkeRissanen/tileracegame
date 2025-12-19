@@ -3,6 +3,7 @@ import {
   GameEvent,
   MAX_TILE,
   Team,
+  RaceTile,
 } from "@/types/game";
 import {
   initialGame,
@@ -797,7 +798,7 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
         const diff = String(clamp(Number(event.diff || 1), 1, 3));
         const text = (event.label || "").trim();
         if (!text) return game;
-        const item = { id: uid(), label: text, instructions: "", image: "" };
+        const item = { id: uid(), label: text, instructions: "", image: "", used: false };
         const taskPools = {
           ...game.taskPools,
           [diff]: [...(game.taskPools?.[diff] || []), item],
@@ -851,6 +852,125 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
         }));
         let next = { ...game, powerupTiles, teams };
         next = addLog(next, "Admin cleared all powerup tiles.");
+        return next;
+      }
+
+      case "ADMIN_IMPORT_POOL_TASKS": {
+        // Import tasks to task pools based on difficulty
+        const taskPools = { ...game.taskPools };
+        
+        event.tasks.forEach((task: { difficulty: number; label: string; instructions: string; image: string }) => {
+          const difficulty = task.difficulty;
+          if (difficulty >= 1 && difficulty <= 3) {
+            if (!taskPools[difficulty]) {
+              taskPools[difficulty] = [];
+            }
+            taskPools[difficulty].push({
+              id: uid(),
+              label: task.label,
+              instructions: task.instructions,
+              image: task.image,
+              used: false,
+            });
+          }
+        });
+        
+        let next = { ...game, taskPools };
+        next = addLog(next, `Admin imported ${event.tasks.length} tasks to pools`);
+        return next;
+      }
+
+      case "ADMIN_RANDOMIZE_BOARD": {
+        // Assign random unused tasks from pools to race board
+        const taskPools = { ...game.taskPools };
+        const raceTiles: RaceTile[] = [];
+        
+        // Define difficulty distribution (you can customize this)
+        const distribution: { [key: number]: number } = {
+          1: 20, // 20 easy tiles
+          2: 20, // 20 medium tiles
+          3: 16, // 16 hard tiles
+        };
+        
+        let tileNumber = 1;
+        for (let difficulty = 1; difficulty <= 3; difficulty++) {
+          const pool = taskPools[difficulty] || [];
+          const unusedTasks = pool.filter((t) => !t.used);
+          const count = distribution[difficulty] || 0;
+          
+          // Shuffle unused tasks
+          const shuffled = [...unusedTasks].sort(() => Math.random() - 0.5);
+          
+          for (let i = 0; i < count && i < shuffled.length; i++) {
+            const task = shuffled[i];
+            raceTiles.push({
+              n: tileNumber++,
+              label: task.label,
+              difficulty: difficulty as 1 | 2 | 3,
+              instructions: task.instructions,
+              image: task.image,
+              rewardPowerupId: null,
+              maxCompletions: 1,
+              minCompletions: 1,
+            });
+            
+            // Mark task as used
+            const taskIndex = pool.findIndex((t) => t === task);
+            if (taskIndex !== -1) {
+              pool[taskIndex] = { ...task, used: true };
+            }
+          }
+        }
+        
+        let next = { ...game, raceTiles, taskPools };
+        next = addLog(next, `Admin randomized race board with ${raceTiles.length} tiles`);
+        return next;
+      }
+
+      case "ADMIN_RANDOMIZE_DIFFICULTIES": {
+        // Simplified randomize difficulties - assign random difficulties to tiles
+        const weights = event.weights || { easy: 50, medium: 35, hard: 15 };
+        const totalWeight = weights.easy + weights.medium + weights.hard;
+        const normalized = {
+          easy: weights.easy / totalWeight,
+          medium: weights.medium / totalWeight,
+          hard: weights.hard / totalWeight,
+        };
+
+        // Force first few tiles to be easy, and final tile to be hard
+        const raceTiles = game.raceTiles.map((tile, index) => {
+          let difficulty: 1 | 2 | 3;
+          
+          if (tile.n === MAX_TILE) {
+            difficulty = 3; // Final tile always hard
+          } else if (index < 2) {
+            difficulty = 1; // First 2 tiles easy
+          } else if (index < 4) {
+            difficulty = 2; // Next 2 tiles medium
+          } else {
+            // Random assignment based on weights
+            const rand = Math.random();
+            if (rand < normalized.easy) {
+              difficulty = 1;
+            } else if (rand < normalized.easy + normalized.medium) {
+              difficulty = 2;
+            } else {
+              difficulty = 3;
+            }
+          }
+
+          return { ...tile, difficulty };
+        });
+
+        let next = { ...game, raceTiles };
+        next.usedPoolTaskIds = [];
+        next = addLog(next, `Admin randomized difficulties (E:${weights.easy} M:${weights.medium} H:${weights.hard})`);
+        return next;
+      }
+
+      case "ADMIN_IMPORT_TILES": {
+        let next = { ...game, raceTiles: event.tiles };
+        next = addLog(next, `Admin imported ${event.tiles.length} race tiles.`);
         return next;
       }
 

@@ -30,6 +30,7 @@ export interface PoolTask {
   label: string;
   instructions: string;
   image: string;
+  used: boolean;
 }
 
 export interface Team {
@@ -175,4 +176,8 @@ export type GameEvent =
   | { type: "ADMIN_CLEAR_TASK_POOLS" }
   | { type: "ADMIN_CLEAR_POWERUP_TILES" }
   | { type: "ADMIN_IMPORT_TASKS"; data: string }
+  | { type: "ADMIN_IMPORT_TILES"; tiles: RaceTile[] }
+  | { type: "ADMIN_IMPORT_POOL_TASKS"; tasks: { difficulty: number; label: string; instructions: string; image: string }[] }
+  | { type: "ADMIN_RANDOMIZE_BOARD" }
+  | { type: "ADMIN_RANDOMIZE_DIFFICULTIES"; weights?: { easy: number; medium: number; hard: number }; gradient?: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
   | { type: "SET_TEAM_PASSWORD"; teamId: string; password: string; adminName?: string };

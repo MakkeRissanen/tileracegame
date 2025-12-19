@@ -15,6 +15,79 @@ export default function AdminPanel() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedTeamForPassword, setSelectedTeamForPassword] = useState<string | null>(null);
   const [teamPassword, setTeamPassword] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState("");
+  const [showImportPowerupsModal, setShowImportPowerupsModal] = useState(false);
+  const [importPowerupsData, setImportPowerupsData] = useState("");
+
+  const handleImportCSV = async () => {
+    try {
+      const lines = importData.trim().split("\n");
+      if (lines.length === 0) {
+        alert("No data to import");
+        return;
+      }
+
+      // Parse CSV: label, difficulty, max completions, min completions, instructions, url
+      const tasks = lines.map((line) => {
+        const parts = line.split("\t").length > 1 ? line.split("\t") : line.split(",");
+        const [label, difficulty, maxCompletions, minCompletions, instructions, image] = parts;
+        
+        return {
+          difficulty: (parseInt(difficulty) || 1) as 1 | 2 | 3,
+          label: label?.trim() || "",
+          instructions: instructions?.trim() || "",
+          image: image?.trim() || "",
+        };
+      });
+
+      // Dispatch the import event to add to task pools
+      await dispatch({
+        type: "ADMIN_IMPORT_POOL_TASKS",
+        tasks: tasks,
+      });
+
+      alert(`Successfully imported ${tasks.length} tasks to pools!`);
+      setShowImportModal(false);
+      setImportData("");
+    } catch (err) {
+      alert(`Failed to import: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
+  const handleImportPowerups = async () => {
+    try {
+      const lines = importPowerupsData.trim().split("\n");
+      if (lines.length === 0) {
+        alert("No data to import");
+        return;
+      }
+
+      // Parse powerup CSV: powerupid,tasklabel,points/completion,max completions,min completions,claimtype,instructions,url
+      for (const line of lines) {
+        const parts = line.split("\t").length > 1 ? line.split("\t") : line.split(",");
+        const [powerupId, label, points, maxComp, minComp, claimType, instructions, image] = parts;
+        
+        await dispatch({
+          type: "ADMIN_CREATE_POWERUP_TILE",
+          label: label?.trim() || "",
+          rewardPowerupId: powerupId?.trim() || "",
+          instructions: instructions?.trim() || "",
+          image: image?.trim() || "",
+          pointsPerCompletion: parseInt(points) || 1,
+          maxCompletions: parseInt(maxComp) || 1,
+          minCompletions: parseInt(minComp) || 1,
+          claimType: (claimType?.trim() as "eachTeam" | "firstTeam" | "unlimited") || "eachTeam",
+        });
+      }
+
+      alert(`Successfully imported ${lines.length} powerup tiles!`);
+      setShowImportPowerupsModal(false);
+      setImportPowerupsData("");
+    } catch (err) {
+      alert(`Failed to import: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +269,12 @@ export default function AdminPanel() {
             <Button onClick={() => setShowCreateTeam(true)} variant="primary" isDark={isDark}>
               Create Team
             </Button>
+            <Button onClick={() => setShowImportModal(true)} variant="secondary" isDark={isDark}>
+              Import Tiles
+            </Button>
+            <Button onClick={() => setShowImportPowerupsModal(true)} variant="secondary" isDark={isDark}>
+              Import Powerups
+            </Button>
             <Button
               onClick={async () => {
                 if (confirm("Are you sure you want to reset the entire game?")) {
@@ -274,6 +353,100 @@ export default function AdminPanel() {
               ))}
             </div>
           )}
+        </Card>
+
+        {/* Task Pools */}
+        <Card isDark={isDark} className="p-6">
+          <h2 className={`text-2xl font-bold mb-4 ${isDark ? "text-white" : "text-slate-900"}`}>
+            Task Pools
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {[1, 2, 3].map((difficulty) => {
+              const pool = game.taskPools?.[difficulty] || [];
+              const unusedCount = pool.filter((t) => !t.used).length;
+              return (
+                <div
+                  key={difficulty}
+                  className={`p-4 rounded-lg ${
+                    isDark ? "bg-slate-700/50" : "bg-slate-100"
+                  }`}
+                >
+                  <div className={`font-bold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Difficulty {difficulty}
+                  </div>
+                  <div className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    Total: {pool.length} tasks
+                  </div>
+                  <div className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    Unused: {unusedCount} tasks
+                  </div>
+                  
+                  {/* List tasks */}
+                  {pool.length > 0 && (
+                    <div className="mt-3 space-y-1 max-h-48 overflow-y-auto">
+                      {pool.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`text-xs p-2 rounded ${
+                            task.used
+                              ? isDark ? "bg-slate-800/50 text-slate-500" : "bg-slate-200 text-slate-500"
+                              : isDark ? "bg-slate-800 text-slate-300" : "bg-white text-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="truncate flex-1" title={task.label}>
+                              {task.label}
+                            </span>
+                            {task.used && <span className="ml-2 text-xs">✓</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-3 mt-4">
+            <Button
+              onClick={async () => {
+                if (confirm("Randomize tile difficulties with weighted distribution? This will clear task assignments.")) {
+                  try {
+                    await dispatch({ 
+                      type: "ADMIN_RANDOMIZE_DIFFICULTIES",
+                      weights: { easy: 50, medium: 35, hard: 15 },
+                      gradient: false,
+                    });
+                    alert("Tile difficulties randomized! Use 'Randomize Race Board' to assign tasks.");
+                  } catch (err) {
+                    alert(`Failed to randomize: ${err instanceof Error ? err.message : "Unknown error"}`);
+                  }
+                }
+              }}
+              variant="secondary"
+              isDark={isDark}
+              className="flex-1"
+            >
+              Randomize Difficulties
+            </Button>
+            <Button
+              onClick={async () => {
+                if (confirm("Randomize race board with tasks from pools?")) {
+                  try {
+                    await dispatch({ type: "ADMIN_RANDOMIZE_BOARD" });
+                    alert("Race board randomized!");
+                  } catch (err) {
+                    alert(`Failed to randomize: ${err instanceof Error ? err.message : "Unknown error"}`);
+                  }
+                }
+              }}
+              variant="primary"
+              isDark={isDark}
+              className="flex-1"
+            >
+              Randomize Race Board
+            </Button>
+          </div>
         </Card>
 
         {/* Tiles Quick Edit */}
@@ -393,6 +566,94 @@ export default function AdminPanel() {
             <Button onClick={handleSetPassword} variant="primary" isDark={isDark} className="w-full">
               Set Password
             </Button>
+          </div>
+        </Modal>
+
+        {/* Import CSV Modal */}
+        <Modal
+          isOpen={showImportModal}
+          onClose={() => {
+            setShowImportModal(false);
+            setImportData("");
+          }}
+          title="Import Race Tiles (CSV/TSV)"
+          isDark={isDark}
+          maxWidth="max-w-2xl"
+        >
+          <div className="space-y-4">
+            <p className={isDark ? "text-slate-300" : "text-slate-600"}>
+              Paste your tile data below. Each line should contain:
+              <br />
+              <code className="text-sm">label, difficulty, maxCompletions, minCompletions, instructions, imageUrl</code>
+              <br />
+              <span className="text-xs">Tiles will be auto-numbered starting from 1</span>
+            </p>
+            <textarea
+              value={importData}
+              onChange={(e) => setImportData(e.target.value)}
+              className={`${inputClass(isDark)} min-h-[300px] font-mono text-sm`}
+              placeholder="Steel ring,1,1,1,Complete the task,https://example.com/image.png"
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportData("");
+                }}
+                variant="secondary"
+                isDark={isDark}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleImportCSV} variant="primary" isDark={isDark} className="flex-1">
+                Import
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Import Powerup Tiles Modal */}
+        <Modal
+          isOpen={showImportPowerupsModal}
+          onClose={() => {
+            setShowImportPowerupsModal(false);
+            setImportPowerupsData("");
+          }}
+          title="Import Powerup Tiles (CSV/TSV)"
+          isDark={isDark}
+          maxWidth="max-w-2xl"
+        >
+          <div className="space-y-4">
+            <p className={isDark ? "text-slate-300" : "text-slate-600"}>
+              Paste your powerup tile data below. Each line should contain:
+              <br />
+              <code className="text-sm">powerupId, label, points/completion, maxCompletions, minCompletions, claimType, instructions, imageUrl</code>
+              <br />
+              <span className="text-xs">ClaimType: eachTeam, firstTeam, or unlimited</span>
+            </p>
+            <textarea
+              value={importPowerupsData}
+              onChange={(e) => setImportPowerupsData(e.target.value)}
+              className={`${inputClass(isDark)} min-h-[300px] font-mono text-sm`}
+              placeholder="skip1,Skip forward task,1,1,1,eachTeam,Complete to skip forward,https://example.com/image.png"
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setShowImportPowerupsModal(false);
+                  setImportPowerupsData("");
+                }}
+                variant="secondary"
+                isDark={isDark}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleImportPowerups} variant="primary" isDark={isDark} className="flex-1">
+                Import
+              </Button>
+            </div>
           </div>
         </Modal>
       </div>
