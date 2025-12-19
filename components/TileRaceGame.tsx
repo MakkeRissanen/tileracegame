@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { useGameSync } from "@/hooks/useGameSync";
+import { useTeamSession } from "@/hooks/useTeamSession";
 import { Button, Card, inputClass } from "./ui";
 import { GameState, Team } from "@/types/game";
+import RaceBoard from "./RaceBoard";
+import TeamsSidebar from "./TeamsSidebar";
+import EventLog from "./EventLog";
 
 interface GameBoardProps {
   game: GameState;
@@ -202,14 +206,40 @@ interface TeamSelectProps {
 }
 
 function TeamSelect({ game, isDark, onSelectTeam }: TeamSelectProps) {
-  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [password, setPassword] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const team = game.teams.find((t) => t.id === selectedTeamId);
+    
+    // Input validation
+    const trimmedTeamName = teamName.trim();
+    const trimmedPassword = password.trim();
+    
+    if (!trimmedTeamName) {
+      alert("Please enter a team name");
+      return;
+    }
+    
+    if (trimmedTeamName.length > 50) {
+      alert("Team name is too long");
+      return;
+    }
+    
+    if (!trimmedPassword) {
+      alert("Please enter a password");
+      return;
+    }
+    
+    // Find team by name (case-insensitive)
+    const team = game.teams?.find(
+      (t) => t.name.toLowerCase() === trimmedTeamName.toLowerCase()
+    );
+    
     if (team) {
-      onSelectTeam(team, password);
+      onSelectTeam(team, trimmedPassword);
+    } else {
+      alert("Team not found. Please check the team name.");
     }
   };
 
@@ -222,23 +252,21 @@ function TeamSelect({ game, isDark, onSelectTeam }: TeamSelectProps) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-            Team
+            Team Name
           </label>
-          <select
-            value={selectedTeamId}
-            onChange={(e) => setSelectedTeamId(e.target.value)}
+          <input
+            type="text"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
             className={inputClass(isDark)}
+            placeholder="Enter your team name"
             required
-          >
-            <option value="">-- Select a team --</option>
-            {game.teams
-              .filter((t) => t.password) // Only show teams with passwords set
-              .map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-          </select>
+          />
+          {game.teams.filter((t) => t.password).length > 0 && (
+            <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              Available teams: {game.teams.filter((t) => t.password).map((t) => t.name).join(", ")}
+            </p>
+          )}
         </div>
 
         <div>
@@ -250,12 +278,13 @@ function TeamSelect({ game, isDark, onSelectTeam }: TeamSelectProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={inputClass(isDark)}
+            placeholder="Enter team password"
             required
           />
         </div>
 
         <Button type="submit" variant="primary" isDark={isDark} className="w-full">
-          Join Team
+          Log in
         </Button>
       </form>
     </Card>
@@ -265,13 +294,19 @@ function TeamSelect({ game, isDark, onSelectTeam }: TeamSelectProps) {
 export default function TileRaceGame() {
   const { game, loading, dispatch } = useGameSync();
   const [isDark] = useState(true);
-  const [myTeam, setMyTeam] = useState<Team | null>(null);
+  const { myTeam, setTeam, logout, isRestoring } = useTeamSession(game.teams || []);
 
   const handleSelectTeam = (team: Team, password: string) => {
     if (team.password === password) {
-      setMyTeam(team);
+      setTeam(team);
     } else {
       alert("Incorrect password!");
+    }
+  };
+
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to logout?")) {
+      logout();
     }
   };
 
@@ -287,7 +322,7 @@ export default function TileRaceGame() {
     }
   };
 
-  if (loading) {
+  if (loading || isRestoring) {
     return (
       <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-8`}>
         <div className="text-center">
@@ -302,62 +337,56 @@ export default function TileRaceGame() {
   return (
     <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-4 md:p-8`}>
       <div className="max-w-6xl mx-auto">
-        <header className="mb-8">
-          <h1 className={`text-4xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-            Tile Race Game
-          </h1>
-          <p className={`mt-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-            Real-time multiplayer tile racing competition
-          </p>
+        <header className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className={`text-4xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+              Tile Race Game
+            </h1>
+            <p className={`mt-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              Real-time multiplayer tile racing competition
+            </p>
+          </div>
+          {myTeam && (
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Logged in as
+                </div>
+                <div className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>
+                  {myTeam.name}
+                </div>
+              </div>
+              <Button onClick={handleLogout} variant="secondary" isDark={isDark}>
+                Logout
+              </Button>
+            </div>
+          )}
         </header>
 
         {!myTeam ? (
           <TeamSelect game={game} isDark={isDark} onSelectTeam={handleSelectTeam} />
         ) : (
-          <>
-            <div className="mb-4 flex justify-end">
-              <Button onClick={() => setMyTeam(null)} variant="secondary" isDark={isDark}>
-                Change Team
-              </Button>
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_340px] gap-6">
+            {/* Left Sidebar - Teams */}
+            <div>
+              <TeamsSidebar
+                game={game}
+                isDark={isDark}
+                myTeam={myTeam}
+                onCompleteTile={handleCompleteTile}
+              />
             </div>
-            <GameBoard
-              game={game}
-              isDark={isDark}
-              myTeam={myTeam}
-              onCompleteTile={handleCompleteTile}
-            />
-          </>
-        )}
 
-        {/* Team Standings */}
-        {game.teams.length > 0 && (
-          <Card isDark={isDark} className="mt-8 p-6">
-            <h3 className={`text-lg font-semibold mb-4 ${isDark ? "text-white" : "text-slate-900"}`}>
-              Team Standings
-            </h3>
-            <div className="space-y-2">
-              {[...game.teams]
-                .sort((a, b) => b.pos - a.pos)
-                .map((team) => (
-                  <div
-                    key={team.id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      isDark ? "bg-slate-700/50" : "bg-slate-100"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded ${team.color}`}></div>
-                      <span className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>
-                        {team.name}
-                      </span>
-                    </div>
-                    <span className={isDark ? "text-slate-300" : "text-slate-600"}>
-                      Tile {team.pos} / 56
-                    </span>
-                  </div>
-                ))}
+            {/* Center - Race Board */}
+            <div>
+              <RaceBoard game={game} isDark={isDark} myTeam={myTeam} />
             </div>
-          </Card>
+
+            {/* Right Sidebar - Event Log */}
+            <div>
+              <EventLog game={game} isDark={isDark} />
+            </div>
+          </div>
         )}
       </div>
     </div>

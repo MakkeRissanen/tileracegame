@@ -18,7 +18,14 @@ export default function AdminPanel() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const admin = game.admins.find((a) => a.password === adminPassword);
+    
+    // Input validation
+    if (!adminPassword.trim()) {
+      alert("Please enter a password");
+      return;
+    }
+    
+    const admin = game.admins?.find((a) => a.password === adminPassword.trim());
     if (admin) {
       setIsLoggedIn(true);
     } else {
@@ -27,36 +34,79 @@ export default function AdminPanel() {
   };
 
   const handleCreateTeam = async () => {
-    if (newTeamName.trim()) {
-      try {
-        await dispatch({
-          type: "ADD_TEAM",
-          name: newTeamName.trim(),
-          adminName: "Admin",
-        });
-        setNewTeamName("");
-        setShowCreateTeam(false);
-      } catch (err) {
-        alert(`Failed to create team: ${err instanceof Error ? err.message : "Unknown error"}`);
-      }
+    const teamName = newTeamName.trim();
+    
+    // Input validation
+    if (!teamName) {
+      alert("Please enter a team name");
+      return;
+    }
+    
+    if (teamName.length > 50) {
+      alert("Team name must be 50 characters or less");
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9\s-_]+$/.test(teamName)) {
+      alert("Team name can only contain letters, numbers, spaces, hyphens, and underscores");
+      return;
+    }
+    
+    // Check for duplicate team names
+    if (game.teams?.some((t) => t.name.toLowerCase() === teamName.toLowerCase())) {
+      alert("A team with this name already exists");
+      return;
+    }
+    
+    try {
+      await dispatch({
+        type: "ADD_TEAM",
+        name: teamName,
+        adminName: "Admin",
+      });
+      setNewTeamName("");
+      setShowCreateTeam(false);
+    } catch (err) {
+      alert(`Failed to create team: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
   const handleSetPassword = async () => {
-    if (selectedTeamForPassword && teamPassword.trim()) {
-      try {
-        await dispatch({
-          type: "SET_TEAM_PASSWORD",
-          teamId: selectedTeamForPassword,
-          password: teamPassword.trim(),
-          adminName: "Admin",
-        });
-        setShowPasswordModal(false);
-        setSelectedTeamForPassword(null);
-        setTeamPassword("");
-      } catch (err) {
-        alert(`Failed to set password: ${err instanceof Error ? err.message : "Unknown error"}`);
-      }
+    const password = teamPassword.trim();
+    
+    // Input validation
+    if (!selectedTeamForPassword) {
+      alert("No team selected");
+      return;
+    }
+    
+    if (!password) {
+      alert("Please enter a password");
+      return;
+    }
+    
+    if (password.length < 4) {
+      alert("Password must be at least 4 characters");
+      return;
+    }
+    
+    if (password.length > 50) {
+      alert("Password must be 50 characters or less");
+      return;
+    }
+    
+    try {
+      await dispatch({
+        type: "SET_TEAM_PASSWORD",
+        teamId: selectedTeamForPassword,
+        password: password,
+        adminName: "Admin",
+      });
+      setShowPasswordModal(false);
+      setSelectedTeamForPassword(null);
+      setTeamPassword("");
+    } catch (err) {
+      alert(`Failed to set password: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
@@ -120,9 +170,6 @@ export default function AdminPanel() {
                 placeholder="Enter admin password"
                 required
               />
-              <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                Default: admin123
-              </p>
             </div>
             <Button type="submit" variant="primary" isDark={isDark} className="w-full">
               Login
@@ -172,13 +219,13 @@ export default function AdminPanel() {
           <h2 className={`text-2xl font-bold mb-4 ${isDark ? "text-white" : "text-slate-900"}`}>
             Teams
           </h2>
-          {game.teams.length === 0 ? (
+          {!game.teams || game.teams.length === 0 ? (
             <p className={isDark ? "text-slate-400" : "text-slate-600"}>
               No teams created yet. Click "Create Team" to add one.
             </p>
           ) : (
             <div className="space-y-3">
-              {game.teams.map((team) => (
+              {game.teams?.map((team) => (
                 <div
                   key={team.id}
                   className={`p-4 rounded-lg ${
@@ -265,7 +312,7 @@ export default function AdminPanel() {
             Event Log
           </h2>
           <div className="space-y-2 max-h-64 overflow-y-auto dark-scrollbar">
-            {game.log.slice(0, 20).map((entry) => (
+            {game.log?.slice(0, 20).map((entry) => (
               <div
                 key={entry.id}
                 className={`text-sm p-2 rounded ${

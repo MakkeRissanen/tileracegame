@@ -89,7 +89,12 @@ export function initialGame(): GameState {
     playerPoints: {},
     teams: [],
     admins: [
-      { id: "master", name: "Master Admin", password: "admin123", isMaster: true },
+      { 
+        id: "master", 
+        name: "Master Admin", 
+        password: process.env.ADMIN_PASSWORD || "admin123", 
+        isMaster: true 
+      },
     ],
     log: [],
   };
