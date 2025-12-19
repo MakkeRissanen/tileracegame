@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { GameState, Team } from "@/types/game";
-import { Button } from "./ui";
+import { Button, Modal, inputClass } from "./ui";
 
 interface TeamsSidebarProps {
   game: GameState;
@@ -17,6 +18,10 @@ export default function TeamsSidebar({
   onCompleteTile,
 }: TeamsSidebarProps) {
   const MAX_TILE = 56;
+  const [showPlayerModal, setShowPlayerModal] = useState(false);
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
 
   const getProgress = (team: Team) => {
     return Math.round((team.pos / MAX_TILE) * 100);
@@ -27,8 +32,36 @@ export default function TeamsSidebar({
     return tile?.label || `Tile ${team.pos}`;
   };
 
+  const handleOpenPlayerModal = (teamId: string) => {
+    setActiveTeamId(teamId);
+    setSelectedPlayers([]);
+    setNewPlayerName("");
+    setShowPlayerModal(true);
+  };
+
+  const handleAddPlayer = () => {
+    if (newPlayerName.trim() && !selectedPlayers.includes(newPlayerName.trim())) {
+      setSelectedPlayers([...selectedPlayers, newPlayerName.trim()]);
+      setNewPlayerName("");
+    }
+  };
+
+  const handleRemovePlayer = (player: string) => {
+    setSelectedPlayers(selectedPlayers.filter((p) => p !== player));
+  };
+
+  const handleConfirmComplete = () => {
+    if (activeTeamId && selectedPlayers.length > 0) {
+      onCompleteTile(activeTeamId, selectedPlayers);
+      setShowPlayerModal(false);
+      setActiveTeamId(null);
+      setSelectedPlayers([]);
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <>
+      <div className="space-y-4">
       <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
         Teams
       </h2>
@@ -121,15 +154,7 @@ export default function TeamsSidebar({
                   variant="primary"
                   isDark={isDark}
                   className="w-full"
-                  onClick={() => {
-                    const players = prompt("Enter player names (comma-separated):");
-                    if (players) {
-                      const names = players.split(",").map((n) => n.trim()).filter(Boolean);
-                      if (names.length > 0) {
-                        onCompleteTile(team.id, names);
-                      }
-                    }
-                  }}
+                  onClick={() => handleOpenPlayerModal(team.id)}
                 >
                   Complete Tile
                 </Button>
@@ -139,5 +164,84 @@ export default function TeamsSidebar({
         );
       })}
     </div>
+
+      {/* Player Selection Modal */}
+      {showPlayerModal && (
+        <Modal isOpen={true} onClose={() => setShowPlayerModal(false)} isDark={isDark}>
+          <div className="space-y-4">
+            <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+              Select Players
+            </h2>
+            <p className={isDark ? "text-slate-300" : "text-slate-600"}>
+              Who completed this tile? Add player names below.
+            </p>
+
+            {/* Add Player Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newPlayerName}
+                onChange={(e) => setNewPlayerName(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleAddPlayer()}
+                placeholder="Player name"
+                className={inputClass(isDark)}
+              />
+              <Button variant="primary" isDark={isDark} onClick={handleAddPlayer}>
+                Add
+              </Button>
+            </div>
+
+            {/* Selected Players */}
+            {selectedPlayers.length > 0 && (
+              <div className="space-y-2">
+                <p className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                  Selected players:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedPlayers.map((player, idx) => (
+                    <div
+                      key={idx}
+                      className={`
+                        flex items-center gap-2 px-3 py-1 rounded-full text-sm
+                        ${isDark ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-900"}
+                      `}
+                    >
+                      <span>{player}</span>
+                      <button
+                        onClick={() => handleRemovePlayer(player)}
+                        className={`font-bold ${isDark ? "hover:text-red-400" : "hover:text-red-600"}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                isDark={isDark}
+                onClick={() => setShowPlayerModal(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                isDark={isDark}
+                onClick={handleConfirmComplete}
+                disabled={selectedPlayers.length === 0}
+                className="flex-1"
+              >
+                Complete Tile
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }

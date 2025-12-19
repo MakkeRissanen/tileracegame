@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { GameState, Team, RaceTile } from "@/types/game";
+import { Modal, Button } from "./ui";
 
 interface RaceBoardProps {
   game: GameState;
@@ -9,6 +11,7 @@ interface RaceBoardProps {
 }
 
 export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
+  const [selectedTile, setSelectedTile] = useState<RaceTile | null>(null);
   const difficultyColors = {
     1: isDark ? "bg-emerald-900/40" : "bg-emerald-200/80",
     2: isDark ? "bg-amber-900/40" : "bg-amber-200/90",
@@ -29,8 +32,15 @@ export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
 
   const isFinalTile = (n: number) => n === 56;
 
+  const handleTileClick = (tile: RaceTile) => {
+    if (isRevealed(tile.n)) {
+      setSelectedTile(tile);
+    }
+  };
+
   return (
-    <div className={`grid grid-cols-4 gap-3 ${isDark ? "text-white" : "text-slate-900"}`}>
+    <>
+      <div className={`grid grid-cols-4 gap-3 ${isDark ? "text-white" : "text-slate-900"}`}>
       {game.raceTiles.map((tile) => {
         const teams = teamsOnTile(tile.n);
         const revealed = isRevealed(tile.n);
@@ -39,6 +49,7 @@ export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
         return (
           <div
             key={tile.n}
+            onClick={() => handleTileClick(tile)}
             className={`
               ${final ? "col-span-4" : "col-span-1"}
               ${final ? "h-36" : "h-28"}
@@ -48,6 +59,7 @@ export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
               relative overflow-hidden
               transition-all duration-200
               ${myTeam?.pos === tile.n ? "ring-2 ring-blue-500" : ""}
+              ${revealed ? "cursor-pointer hover:shadow-lg" : ""}
             `}
           >
             {/* Tile Number */}
@@ -127,5 +139,63 @@ export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
         );
       })}
     </div>
+
+      {/* Tile Details Modal */}
+      {selectedTile && (
+        <Modal isOpen={true} onClose={() => setSelectedTile(null)} isDark={isDark}>
+          <div className="space-y-4">
+            <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+              Tile #{selectedTile.n}
+            </h2>
+
+            {selectedTile.image && (
+              <img
+                src={selectedTile.image}
+                alt={selectedTile.label}
+                className="w-full max-w-md mx-auto rounded-lg"
+              />
+            )}
+
+            <div>
+              <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                {selectedTile.label}
+              </h3>
+              <p className={isDark ? "text-slate-300" : "text-slate-600"}>
+                {selectedTile.instructions || "No additional instructions."}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${
+                difficultyColors[selectedTile.difficulty as 1 | 2 | 3]
+              }`}>
+                {difficultyLabels[selectedTile.difficulty as 1 | 2 | 3]}
+              </span>
+              {selectedTile.rewardPowerupId && (
+                <span className={`px-3 py-1 rounded-lg text-sm font-bold ${
+                  isDark ? "bg-yellow-900/60 text-yellow-100" : "bg-yellow-200 text-yellow-900"
+                }`}>
+                  🎁 Reward: {selectedTile.rewardPowerupId}
+                </span>
+              )}
+            </div>
+
+            <div className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              <p>Min completions: {selectedTile.minCompletions}</p>
+              <p>Max completions: {selectedTile.maxCompletions}</p>
+            </div>
+
+            <Button
+              variant="secondary"
+              isDark={isDark}
+              onClick={() => setSelectedTile(null)}
+              className="w-full"
+            >
+              Close
+            </Button>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
