@@ -37,7 +37,7 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
         const name = (event.name || "").trim();
         if (!name) return game;
 
-        const idx = game.teams.length;
+        const idx = game?.teams?.length || 0;
         const team = {
           id: uid(),
           name,
@@ -56,7 +56,7 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
           password: null,
         };
 
-        let next = { ...game, teams: [...game.teams, team] };
+        let next = { ...game, teams: [...(game.teams || []), team] };
         next = addLog(
           next,
           `Admin created team "${name}". Password must be set by admin before team can be used.`
