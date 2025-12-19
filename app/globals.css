@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Dark scrollbar for modals and event logs */
+.dark-scrollbar::-webkit-scrollbar {
+  width: 12px;
+}
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 6px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
