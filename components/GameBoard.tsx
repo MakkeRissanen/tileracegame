@@ -8,10 +8,11 @@ interface GameBoardProps {
   game: GameState;
   isDark: boolean;
   myTeam: Team | null;
+  isAdmin?: boolean;
   onCompleteTile: (teamId: string, playerNames: string[]) => void;
 }
 
-export default function GameBoard({ game, isDark, myTeam, onCompleteTile }: GameBoardProps) {
+export default function GameBoard({ game, isDark, myTeam, isAdmin = false, onCompleteTile }: GameBoardProps) {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [newPlayerName, setNewPlayerName] = useState("");
 
@@ -26,7 +27,15 @@ export default function GameBoard({ game, isDark, myTeam, onCompleteTile }: Game
   }
 
   const currentTile = game.raceTiles.find((t) => t.n === myTeam.pos);
-  const isRevealed = game.revealedTiles?.includes(myTeam.pos) ?? true;
+  
+  const isRevealed = (() => {
+    // If fog of war is disabled for everyone, reveal all tiles
+    if (game.fogOfWarDisabled === "all") return true;
+    // If fog of war is disabled for admin only and viewer is admin, reveal all tiles
+    if (game.fogOfWarDisabled === "admin" && isAdmin) return true;
+    // Otherwise, check normal revealed tiles
+    return game.revealedTiles?.includes(myTeam.pos) ?? true;
+  })();
 
   const handleAddPlayer = () => {
     if (newPlayerName.trim() && !selectedPlayers.includes(newPlayerName.trim())) {

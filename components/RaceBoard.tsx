@@ -8,9 +8,10 @@ interface RaceBoardProps {
   game: GameState;
   isDark: boolean;
   myTeam: Team | null;
+  isAdmin?: boolean;
 }
 
-export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
+export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
   const [selectedTile, setSelectedTile] = useState<RaceTile | null>(null);
   const difficultyColors = {
     1: "bg-emerald-800",
@@ -30,7 +31,14 @@ export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
     3: "Hard",
   };
 
-  const isRevealed = (n: number) => game.revealedTiles?.includes(n) ?? false;
+  const isRevealed = (n: number) => {
+    // If fog of war is disabled for everyone, reveal all tiles
+    if (game.fogOfWarDisabled === "all") return true;
+    // If fog of war is disabled for admin only and viewer is admin, reveal all tiles
+    if (game.fogOfWarDisabled === "admin" && isAdmin) return true;
+    // Otherwise, check normal revealed tiles
+    return game.revealedTiles?.includes(n) ?? false;
+  };
   
   const teamsOnTile = (n: number) => {
     return game.teams?.filter((t) => t.pos === n) || [];
@@ -163,7 +171,7 @@ export default function RaceBoard({ game, isDark, myTeam }: RaceBoardProps) {
                 key={team.id}
                 className={`px-2 py-0.5 rounded-full text-xs font-medium text-white ${team.color}`}
                 style={{
-                  transform: teams.length > 1 ? `scale(${1 - idx * 0.1})` : undefined,
+                  transform: teams.length > 1 ? 'scale(0.8)' : undefined,
                 }}
               >
                 {team.name}

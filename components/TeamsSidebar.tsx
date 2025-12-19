@@ -8,16 +8,24 @@ interface TeamsSidebarProps {
   game: GameState;
   isDark: boolean;
   myTeam: Team | null;
+  isAdmin?: boolean;
   onCompleteTile: (teamId: string, playerNames: string[]) => void;
   onUsePowerup: () => void;
+  onClaimPowerup?: (tileId: number) => void;
+  onAdminUsePowerup?: (teamId: string) => void;
+  onEditTeam?: (teamId: string) => void;
 }
 
 export default function TeamsSidebar({
   game,
   isDark,
   myTeam,
+  isAdmin = false,
   onCompleteTile,
   onUsePowerup,
+  onClaimPowerup,
+  onAdminUsePowerup,
+  onEditTeam,
 }: TeamsSidebarProps) {
   const MAX_TILE = 56;
   const [showPlayerModal, setShowPlayerModal] = useState(false);
@@ -147,6 +155,43 @@ export default function TeamsSidebar({
               <p className={`text-xs mb-3 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                 🎁 {team.inventory.length} powerup{team.inventory.length > 1 ? "s" : ""}
               </p>
+            )}
+
+            {/* Admin Action Buttons */}
+            {isAdmin && (
+              <div className="space-y-2 mb-3">
+                <div className={`text-xs font-semibold mb-2 ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
+                  👑 Admin Controls
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    isDark={isDark}
+                    className="text-xs py-1.5"
+                    onClick={() => handleOpenPlayerModal(team.id)}
+                  >
+                    ✅ Complete
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    isDark={isDark}
+                    className="text-xs py-1.5"
+                    onClick={() => onEditTeam && onEditTeam(team.id)}
+                  >
+                    ✏️ Edit Team
+                  </Button>
+                  {team.inventory && team.inventory.length > 0 && (
+                    <Button
+                      variant="secondary"
+                      isDark={isDark}
+                      className="text-xs py-1.5"
+                      onClick={() => onAdminUsePowerup && onAdminUsePowerup(team.id)}
+                    >
+                      🎁 Use Powerup
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Action Buttons (only for logged-in team) */}

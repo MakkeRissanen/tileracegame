@@ -12,12 +12,14 @@ import PlayerPointsPanel from "./PlayerPointsPanel";
 interface MainGameLayoutProps {
   game: GameState;
   isDark: boolean;
-  myTeam: Team;
+  myTeam: Team | null;
   isAdmin: boolean;
   onCompleteTile: (teamId: string, playerNames: string[]) => void;
   onUsePowerup: () => void;
   onClaimPowerup: (tileId: number) => void;
   onClearPools: () => void;
+  onAdminUsePowerup?: (teamId: string) => void;
+  onEditTeam?: (teamId: string) => void;
 }
 
 export default function MainGameLayout({
@@ -29,6 +31,8 @@ export default function MainGameLayout({
   onUsePowerup,
   onClaimPowerup,
   onClearPools,
+  onAdminUsePowerup,
+  onEditTeam,
 }: MainGameLayoutProps) {
   return (
     <div className="space-y-6">
@@ -39,8 +43,12 @@ export default function MainGameLayout({
             game={game}
             isDark={isDark}
             myTeam={myTeam}
+            isAdmin={isAdmin}
             onCompleteTile={onCompleteTile}
             onUsePowerup={onUsePowerup}
+            onClaimPowerup={onClaimPowerup}
+            onAdminUsePowerup={onAdminUsePowerup}
+            onEditTeam={onEditTeam}
           />
         </div>
 
@@ -48,13 +56,13 @@ export default function MainGameLayout({
         <div className="space-y-6">
           {/* Race Board with Player Points and Event Log */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px_340px] gap-6">
-            <RaceBoard game={game} isDark={isDark} myTeam={myTeam} />
+            <RaceBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} />
             <PlayerPointsPanel game={game} isDark={isDark} />
             <EventLog game={game} isDark={isDark} />
           </div>
           
           {/* Current Tile */}
-          <GameBoard game={game} isDark={isDark} myTeam={myTeam} onCompleteTile={onCompleteTile} />
+          <GameBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} onCompleteTile={onCompleteTile} />
         </div>
       </div>
 

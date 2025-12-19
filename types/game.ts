@@ -30,6 +30,8 @@ export interface PoolTask {
   label: string;
   instructions: string;
   image: string;
+  maxCompletions?: number;
+  minCompletions?: number;
   used: boolean;
 }
 
@@ -74,10 +76,12 @@ export interface GameState {
   doubledTiles: number[];
   doubledTilesInfo: Record<number, { useDifficultyPoints: boolean }>;
   revealedTiles: number[];
+  fogOfWarDisabled?: "none" | "admin" | "all";
   playerPoints: Record<string, number>;
   teams: Team[];
   admins: Admin[];
   log: LogEntry[];
+  eventHistory?: GameState[];
 }
 
 export interface PowerupDef {
@@ -177,7 +181,17 @@ export type GameEvent =
   | { type: "ADMIN_CLEAR_POWERUP_TILES" }
   | { type: "ADMIN_IMPORT_TASKS"; data: string }
   | { type: "ADMIN_IMPORT_TILES"; tiles: RaceTile[] }
-  | { type: "ADMIN_IMPORT_POOL_TASKS"; tasks: { difficulty: number; label: string; instructions: string; image: string }[] }
+  | { type: "ADMIN_IMPORT_POOL_TASKS"; tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }[] }
+  | { type: "ADMIN_IMPORT_POWERUPS"; powerups: Array<{ powerupType: string; label: string; pointsPerCompletion: number; maxCompletions: number; minCompletions: number; claimType: "eachTeam" | "firstTeam" | "unlimited"; instructions: string; image: string }> }
   | { type: "ADMIN_RANDOMIZE_BOARD" }
+  | { type: "ADMIN_RANDOMIZE_TILES" }
+  | { type: "ADMIN_SET_FOG_OF_WAR"; mode: "none" | "admin" | "all" }
   | { type: "ADMIN_RANDOMIZE_DIFFICULTIES"; weights?: { easy: number; medium: number; hard: number }; gradient?: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
-  | { type: "SET_TEAM_PASSWORD"; teamId: string; password: string; adminName?: string };
+  | { type: "SET_TEAM_PASSWORD"; teamId: string; password: string; adminName?: string }
+  | { type: "ADMIN_ADD_ADMIN"; name: string; password: string; isMaster: boolean }
+  | { type: "ADMIN_REMOVE_ADMIN"; adminId: string }
+  | { type: "ADMIN_CHANGE_PASSWORD"; oldPassword: string; newPassword: string }
+  | { type: "ADMIN_SET_ALL_TEAM_PASSWORDS"; password: string }
+  | { type: "ADMIN_UNDO" }
+  | { type: "ADMIN_APPLY_DRAFT_TEAMS"; teams: Array<{ name: string; captain: string; members: string[] }>; adminName?: string }
+  | { type: "ADMIN_UPDATE_TEAM"; teamId: string; updates: Partial<Team> };

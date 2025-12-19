@@ -21,11 +21,44 @@ import {
   powerupLabel,
 } from "./gameUtils";
 
+const MAX_HISTORY_SIZE = 50; // Limit history to prevent memory issues
+
+/**
+ * Save current state to history before applying event
+ */
+function saveToHistory(game: GameState): GameState {
+  const history = game.eventHistory || [];
+  
+  // Create a snapshot without the history to avoid nested history
+  const { eventHistory, ...stateSnapshot } = game;
+  
+  // Add to history and limit size
+  const newHistory = [...history, stateSnapshot].slice(-MAX_HISTORY_SIZE);
+  
+  return { ...game, eventHistory: newHistory };
+}
+
 /**
  * Core event handler - applies an event to the game state
  * This is a pure function that returns a new game state
  */
 export function applyEvent(game: GameState, event: GameEvent): GameState {
+  // Save to history before applying event (except for ADMIN_UNDO and RESET_ALL)
+  const shouldSaveHistory = event.type !== "ADMIN_UNDO" && event.type !== "RESET_ALL";
+  const gameWithHistory = shouldSaveHistory ? saveToHistory(game) : game;
+  
+  try {
+    return applyEventInternal(gameWithHistory, event);
+  } catch (error) {
+    console.error("Error applying event:", error);
+    return game;
+  }
+}
+
+/**
+ * Internal event handler - actual event processing logic
+ */
+function applyEventInternal(game: GameState, event: GameEvent): GameState {
   try {
     switch (event.type) {
       case "RESET_ALL": {
@@ -78,6 +111,54 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
         );
         let next = { ...game, teams };
         next = addLog(next, `Password set for team ID ${event.teamId}`, event.adminName);
+        return next;
+      }
+
+      case "ADMIN_APPLY_DRAFT_TEAMS": {
+        const payloadTeams = Array.isArray(event.teams) ? event.teams : [];
+        if (payloadTeams.length === 0) return game;
+
+        // Keep existing teams if name matches, otherwise create new
+        let nextTeams = [...(game.teams || [])];
+
+        function ensureTeam(teamName: string, indexHint: number) {
+          const existing = nextTeams.find((t) => t.name.toLowerCase() === teamName.toLowerCase());
+          if (existing) return existing;
+          const team: Team = {
+            id: uid(),
+            name: teamName,
+            color: colorForIndex(nextTeams.length + indexHint),
+            pos: 1,
+            createdAt: Date.now(),
+            inventory: [],
+            preCleared: [],
+            copyChoice: [],
+            claimedRaceTileRewards: [],
+            claimedPowerupTiles: [],
+            members: [],
+            captain: "",
+            playerPoints: {},
+            powerupCooldown: false,
+            password: null,
+          };
+          nextTeams = [...nextTeams, team];
+          return team;
+        }
+
+        for (let i = 0; i < payloadTeams.length; i++) {
+          const pt = payloadTeams[i];
+          const name = (pt.name || "").trim();
+          if (!name) continue;
+
+          const team = ensureTeam(name, i);
+          // Update members/captain
+          nextTeams = nextTeams.map((t) =>
+            t.id === team.id ? { ...t, members: pt.members || [], captain: pt.captain || "" } : t
+          );
+        }
+
+        let next = { ...game, teams: nextTeams };
+        next = addLog(next, `Draft applied: ${payloadTeams.length} team(s) updated.`, event.adminName);
         return next;
       }
 
@@ -859,7 +940,7 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
         // Import tasks to task pools based on difficulty
         const taskPools = { ...game.taskPools };
         
-        event.tasks.forEach((task: { difficulty: number; label: string; instructions: string; image: string }) => {
+        event.tasks.forEach((task: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }) => {
           const difficulty = task.difficulty;
           if (difficulty >= 1 && difficulty <= 3) {
             if (!taskPools[difficulty]) {
@@ -870,6 +951,8 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
               label: task.label,
               instructions: task.instructions,
               image: task.image,
+              maxCompletions: task.maxCompletions,
+              minCompletions: task.minCompletions,
               used: false,
             });
           }
@@ -877,6 +960,30 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
         
         let next = { ...game, taskPools };
         next = addLog(next, `Admin imported ${event.tasks.length} tasks to pools`);
+        return next;
+      }
+
+      case "ADMIN_IMPORT_POWERUPS": {
+        // Import powerup tiles
+        const maxId = (game.powerupTiles || []).reduce((m, t) => Math.max(m, t.id), 0);
+        let nextId = maxId + 1;
+        
+        const newPowerups = event.powerups.map((powerup) => ({
+          id: nextId++,
+          label: powerup.label,
+          rewardPowerupId: powerup.powerupType,
+          instructions: powerup.instructions,
+          image: powerup.image,
+          link: powerup.image,
+          pointsPerCompletion: powerup.pointsPerCompletion,
+          maxCompletions: powerup.maxCompletions,
+          minCompletions: powerup.minCompletions,
+          claimType: powerup.claimType,
+        }));
+        
+        const powerupTiles = [...(game.powerupTiles || []), ...newPowerups];
+        let next = { ...game, powerupTiles };
+        next = addLog(next, `Admin imported ${event.powerups.length} powerup tiles`);
         return next;
       }
 
@@ -927,8 +1034,154 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
         return next;
       }
 
+      case "ADMIN_SET_FOG_OF_WAR": {
+        const mode = event.mode || "none";
+        
+        // If disabling fog of war, reveal all tiles
+        if (mode !== "none") {
+          const revealedTiles: number[] = [];
+          for (let i = 1; i <= MAX_TILE; i++) {
+            revealedTiles.push(i);
+          }
+          
+          let next: GameState = { ...game, fogOfWarDisabled: mode, revealedTiles };
+          const modeText = mode === "admin" ? "for admin only" : "for everyone";
+          next = addLog(next, `Admin disabled fog of war ${modeText} - all tiles revealed`);
+          return next;
+        } else {
+          // Re-enable fog of war - reset revealed tiles to current team progress
+          const revealedTiles = new Set<number>();
+          const CHUNK_SIZE = 8;
+          
+          game.teams.forEach((team) => {
+            const pos = team.pos;
+            const chunk = Math.floor((pos - 1) / CHUNK_SIZE);
+            for (let c = 0; c <= chunk; c++) {
+              const chunkStart = c * CHUNK_SIZE + 1;
+              const chunkEnd = Math.min((c + 1) * CHUNK_SIZE, MAX_TILE - 1);
+              for (let i = chunkStart; i <= chunkEnd; i++) {
+                revealedTiles.add(i);
+              }
+            }
+          });
+          
+          let next: GameState = { ...game, fogOfWarDisabled: mode, revealedTiles: Array.from(revealedTiles) };
+          next = addLog(next, "Admin re-enabled fog of war");
+          return next;
+        }
+      }
+
+      case "ADMIN_RANDOMIZE_TILES": {
+        // Assign random unused tasks from pools based on existing tile difficulties
+        const taskPools = { ...game.taskPools };
+        const usedPoolTaskIds = new Set(game.usedPoolTaskIds || []);
+        
+        // Check unused tasks in each pool before randomizing
+        const pool1 = taskPools["1"] || [];
+        const pool2 = taskPools["2"] || [];
+        const pool3 = taskPools["3"] || [];
+        
+        const unusedInPool = {
+          1: pool1.filter((t) => !usedPoolTaskIds.has(t.id)).length,
+          2: pool2.filter((t) => !usedPoolTaskIds.has(t.id)).length,
+          3: pool3.filter((t) => !usedPoolTaskIds.has(t.id)).length,
+        };
+        
+        const warnings: string[] = [];
+        if (unusedInPool[1] <= 3) {
+          warnings.push(`Easy pool has only ${unusedInPool[1]} unused tasks`);
+        }
+        if (unusedInPool[2] <= 3) {
+          warnings.push(`Medium pool has only ${unusedInPool[2]} unused tasks`);
+        }
+        if (unusedInPool[3] <= 3) {
+          warnings.push(`Hard pool has only ${unusedInPool[3]} unused tasks`);
+        }
+        
+        const unfilledTiles: number[] = [];
+        
+        const raceTiles = game.raceTiles.map((tile) => {
+          const difficulty = tile.difficulty;
+          const pool = taskPools[String(difficulty)] || [];
+          
+          // Find unused tasks in the pool
+          const unusedTasks = pool.filter((t) => !usedPoolTaskIds.has(t.id));
+          
+          if (unusedTasks.length === 0) {
+            // No unused tasks available, track this as an error
+            unfilledTiles.push(tile.n);
+            return tile;
+          }
+          
+          // Pick a random unused task
+          const randomIndex = Math.floor(Math.random() * unusedTasks.length);
+          const selectedTask = unusedTasks[randomIndex];
+          
+          // Mark task as used
+          usedPoolTaskIds.add(selectedTask.id);
+          const poolIndex = pool.findIndex((t) => t.id === selectedTask.id);
+          if (poolIndex !== -1) {
+            pool[poolIndex] = { ...selectedTask, used: true };
+          }
+          
+          // Create new tile with selected task
+          return {
+            ...tile,
+            label: selectedTask.label,
+            instructions: selectedTask.instructions || "",
+            image: selectedTask.image || "",
+            maxCompletions: selectedTask.maxCompletions || 1,
+            minCompletions: selectedTask.minCompletions || 1,
+          };
+        });
+        
+        // Add error for unfilled tiles
+        if (unfilledTiles.length > 0) {
+          warnings.push(`Could not fill ${unfilledTiles.length} tile(s): ${unfilledTiles.join(", ")}`);
+        }
+        
+        let next = { 
+          ...game, 
+          raceTiles, 
+          taskPools, 
+          usedPoolTaskIds: Array.from(usedPoolTaskIds)
+        };
+        
+        // Only remove fog of war if there are warnings (errors filling tiles)
+        if (warnings.length > 0) {
+          const revealedTiles: number[] = [];
+          for (let i = 1; i <= MAX_TILE; i++) {
+            revealedTiles.push(i);
+          }
+          next = { ...next, revealedTiles };
+          
+          next = addLog(
+            next, 
+            `Admin randomized tiles from pools (assigned ${raceTiles.length - unfilledTiles.length} tasks) - WARNING: ${warnings.join(", ")} - Fog of war removed to alert admin`
+          );
+        } else {
+          next = addLog(next, `Admin randomized tiles from pools (assigned ${raceTiles.length} tasks)`);
+        }
+        
+        return next;
+      }
+
       case "ADMIN_RANDOMIZE_DIFFICULTIES": {
-        // Simplified randomize difficulties - assign random difficulties to tiles
+        // Check task pool availability first
+        const MIN_REMAINING = 3;
+        const MIN_HARD_TILES = 17; // Minimum hard tiles required on board
+        const pool1 = game.taskPools?.["1"] || [];
+        const pool2 = game.taskPools?.["2"] || [];
+        const pool3 = game.taskPools?.["3"] || [];
+
+        // Count available tasks in each pool
+        const available = {
+          1: pool1.length,
+          2: pool2.length,
+          3: pool3.length,
+        };
+
+        // Assign difficulties with constraints
         const weights = event.weights || { easy: 50, medium: 35, hard: 15 };
         const totalWeight = weights.easy + weights.medium + weights.hard;
         const normalized = {
@@ -937,40 +1190,215 @@ export function applyEvent(game: GameState, event: GameEvent): GameState {
           hard: weights.hard / totalWeight,
         };
 
-        // Force first few tiles to be easy, and final tile to be hard
-        const raceTiles = game.raceTiles.map((tile, index) => {
+        // Count tiles that must be each difficulty
+        const counts = { 1: 0, 2: 0, 3: 0 };
+        
+        // First pass: assign fixed tiles and count them
+        // Tile 1-2: easy, Tile 3-4: medium, Tile 5: hard, Final tile: hard
+        const fixedHardTiles = 2; // Tile 5 and tile 56
+        const minRandomHardTiles = MIN_HARD_TILES - fixedHardTiles; // Need at least 15 more hard tiles
+        
+        // Force first 5 tiles: easy, easy, medium, medium, hard; and final tile to be hard
+        const raceTiles: RaceTile[] = game.raceTiles.map((tile, index) => {
           let difficulty: 1 | 2 | 3;
           
           if (tile.n === MAX_TILE) {
-            difficulty = 3; // Final tile always hard
-          } else if (index < 2) {
-            difficulty = 1; // First 2 tiles easy
-          } else if (index < 4) {
-            difficulty = 2; // Next 2 tiles medium
+            difficulty = 3; // Final tile (56th) always hard
+          } else if (index === 0 || index === 1) {
+            difficulty = 1; // Tiles 1-2: easy
+          } else if (index === 2 || index === 3) {
+            difficulty = 2; // Tiles 3-4: medium
+          } else if (index === 4) {
+            difficulty = 3; // Tile 5: hard
           } else {
-            // Random assignment based on weights
+            // Check consecutive tiles to prevent streaks
+            const lastQuarter = index >= Math.floor(MAX_TILE * 0.75); // Last 1/4 of board (tiles 43+)
+            const maxStreak = lastQuarter ? 3 : 2;
+            
+            let streak = 1;
+            let prevDiff: 1 | 2 | 3 | undefined = raceTiles[index - 1]?.difficulty;
+            for (let i = index - 2; i >= 0 && raceTiles[i]?.difficulty === prevDiff; i--) {
+              streak++;
+            }
+            
+            // Random assignment based on weights, but check availability and streak
             const rand = Math.random();
+            let candidateDiff: 1 | 2 | 3;
+            
             if (rand < normalized.easy) {
-              difficulty = 1;
+              candidateDiff = 1;
             } else if (rand < normalized.easy + normalized.medium) {
-              difficulty = 2;
+              candidateDiff = 2;
             } else {
-              difficulty = 3;
+              candidateDiff = 3;
+            }
+            
+            // Check if candidate would create too long a streak
+            if (candidateDiff === prevDiff && streak >= maxStreak) {
+              // Can't use this difficulty, pick different one
+              const alternatives: (1 | 2 | 3)[] = [1, 2, 3].filter(d => d !== prevDiff) as (1 | 2 | 3)[];
+              candidateDiff = alternatives[Math.floor(Math.random() * alternatives.length)];
+            }
+            
+            // Special rule: in last quarter, easy can only appear once in a row
+            if (lastQuarter && candidateDiff === 1 && prevDiff === 1) {
+              const alternatives: (1 | 2 | 3)[] = [2, 3];
+              candidateDiff = alternatives[Math.floor(Math.random() * alternatives.length)];
+            }
+            
+            // Check pool availability
+            if (counts[candidateDiff] >= available[candidateDiff] - MIN_REMAINING) {
+              // Fallback: assign to pool with most available space
+              const space1 = available[1] - counts[1] - MIN_REMAINING;
+              const space2 = available[2] - counts[2] - MIN_REMAINING;
+              const space3 = available[3] - counts[3] - MIN_REMAINING;
+              
+              if (space1 >= space2 && space1 >= space3 && space1 > 0) {
+                difficulty = 1;
+              } else if (space2 >= space3 && space2 > 0) {
+                difficulty = 2;
+              } else if (space3 > 0) {
+                difficulty = 3;
+              } else {
+                // Not enough tasks in any pool - use original tile difficulty
+                difficulty = tile.difficulty;
+              }
+            } else {
+              difficulty = candidateDiff;
             }
           }
 
+          counts[difficulty]++;
           return { ...tile, difficulty };
         });
 
+        // Check if we have enough hard tiles
+        if (counts[3] < MIN_HARD_TILES) {
+          // Need to convert some easy/medium tiles to hard
+          const shortfall = MIN_HARD_TILES - counts[3];
+          let converted = 0;
+          
+          // Convert tiles starting from index 5 (after fixed tiles)
+          for (let i = 5; i < raceTiles.length - 1 && converted < shortfall; i++) {
+            if (raceTiles[i].difficulty !== 3 && counts[3] < available[3] - MIN_REMAINING) {
+              const oldDiff: 1 | 2 | 3 = raceTiles[i].difficulty;
+              raceTiles[i] = { ...raceTiles[i], difficulty: 3 };
+              counts[oldDiff]--;
+              counts[3]++;
+              converted++;
+            }
+          }
+        }
+
+        // Validate we have enough tasks
+        const warnings: string[] = [];
+        if (counts[1] > available[1] - MIN_REMAINING) {
+          warnings.push(`Easy pool needs ${counts[1] + MIN_REMAINING - available[1]} more tasks`);
+        }
+        if (counts[2] > available[2] - MIN_REMAINING) {
+          warnings.push(`Medium pool needs ${counts[2] + MIN_REMAINING - available[2]} more tasks`);
+        }
+        if (counts[3] > available[3] - MIN_REMAINING) {
+          warnings.push(`Hard pool needs ${counts[3] + MIN_REMAINING - available[3]} more tasks`);
+        }
+
         let next = { ...game, raceTiles };
         next.usedPoolTaskIds = [];
-        next = addLog(next, `Admin randomized difficulties (E:${weights.easy} M:${weights.medium} H:${weights.hard})`);
+        
+        const logMsg = warnings.length > 0
+          ? `Admin randomized difficulties (E:${counts[1]} M:${counts[2]} H:${counts[3]}) - WARNING: ${warnings.join(", ")}`
+          : `Admin randomized difficulties (E:${counts[1]} M:${counts[2]} H:${counts[3]}, pools: ${available[1] - counts[1]}/${available[2] - counts[2]}/${available[3] - counts[3]} remaining)`;
+        
+        next = addLog(next, logMsg);
         return next;
       }
 
       case "ADMIN_IMPORT_TILES": {
         let next = { ...game, raceTiles: event.tiles };
         next = addLog(next, `Admin imported ${event.tiles.length} race tiles.`);
+        return next;
+      }
+
+      case "ADMIN_ADD_ADMIN": {
+        const name = (event.name || "").trim();
+        const password = (event.password || "").trim();
+        if (!name || !password) return game;
+
+        const newAdmin = {
+          id: uid(),
+          name,
+          password,
+          isMaster: event.isMaster || false,
+        };
+
+        const admins = [...(game.admins || []), newAdmin];
+        let next = { ...game, admins };
+        next = addLog(next, `Admin added: ${name}${event.isMaster ? " (Master)" : ""}`);
+        return next;
+      }
+
+      case "ADMIN_REMOVE_ADMIN": {
+        const admin = game.admins.find((a) => a.id === event.adminId);
+        if (!admin) return game;
+        if (admin.isMaster) {
+          return addLog(game, `Cannot remove master admin: ${admin.name}`);
+        }
+
+        const admins = game.admins.filter((a) => a.id !== event.adminId);
+        let next = { ...game, admins };
+        next = addLog(next, `Admin removed: ${admin.name}`);
+        return next;
+      }
+
+      case "ADMIN_CHANGE_PASSWORD": {
+        const currentAdmin = game.admins.find((a) => a.password === event.oldPassword);
+        if (!currentAdmin) {
+          return addLog(game, "Password change failed: incorrect current password");
+        }
+
+        const admins = game.admins.map((a) =>
+          a.id === currentAdmin.id ? { ...a, password: event.newPassword } : a
+        );
+        let next = { ...game, admins };
+        next = addLog(next, `Password changed for admin: ${currentAdmin.name}`);
+        return next;
+      }
+
+      case "ADMIN_SET_ALL_TEAM_PASSWORDS": {
+        const password = event.password;
+        const teams = game.teams.map((t) => ({ ...t, password: password || null }));
+        let next = { ...game, teams };
+        next = addLog(next, `Password set for all ${teams.length} team(s)`);
+        return next;
+      }
+
+      case "ADMIN_UNDO": {
+        const history = game.eventHistory || [];
+        if (history.length === 0) {
+          return addLog(game, "Nothing to undo - no history available");
+        }
+        
+        // Get the most recent state from history
+        const previousState = history[history.length - 1];
+        // Remove the last item from history
+        const newHistory = history.slice(0, -1);
+        
+        // Restore previous state with updated history and add log
+        let next: GameState = { ...previousState, eventHistory: newHistory };
+        next = addLog(next, "Admin undid last action");
+        return next;
+      }
+
+      case "ADMIN_UPDATE_TEAM": {
+        const teams = game.teams.map((t) => {
+          if (t.id === event.teamId) {
+            return { ...t, ...event.updates };
+          }
+          return t;
+        });
+        let next = { ...game, teams };
+        const team = teams.find((t) => t.id === event.teamId);
+        next = addLog(next, `Admin updated team: ${team?.name || "Unknown"}`);
         return next;
       }
 

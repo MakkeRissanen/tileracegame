@@ -37,16 +37,8 @@ export default function GameHeader({
         </p>
       </div>
       <div className="flex items-center gap-3">
-        {/* Admin Login/Options */}
-        {!isAdmin ? (
-          <Button
-            onClick={onShowAdminLogin}
-            variant="secondary"
-            isDark={isDark}
-          >
-            🔑 Admin
-          </Button>
-        ) : (
+        {/* Admin Options */}
+        {isAdmin && (
           <>
             <div className="relative">
               <Button
@@ -63,7 +55,7 @@ export default function GameHeader({
               variant="secondary"
               isDark={isDark}
             >
-              Admin Logout
+              Logout
             </Button>
           </>
         )}
