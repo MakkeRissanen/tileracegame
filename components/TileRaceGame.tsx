@@ -69,6 +69,16 @@ export default function TileRaceGame() {
     }
   }, [game.teams, showVictoryModal]);
 
+  // Alert when fog of war is disabled due to errors
+  useEffect(() => {
+    if (game.fogOfWarDisabled === "all" && game.log && game.log.length > 0) {
+      const lastLog = game.log[game.log.length - 1];
+      if (lastLog.message.includes("⚠️ ERROR")) {
+        alert(lastLog.message);
+      }
+    }
+  }, [game.fogOfWarDisabled, game.log]);
+
   const handleClaimPowerup = (tileId: number) => {
     const tile = game.powerupTiles?.find((pt) => pt.id === tileId);
     if (tile && myTeam) {

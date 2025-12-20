@@ -1055,7 +1055,7 @@
                 // Reset usedPoolTaskIds when importing new tasks
                 const usedPoolTaskIds = [];
                 let next = { ...game, taskPools, usedPoolTaskIds };
-                next = addLog(next, `Imported ${imported} tasks into pool. Skipped ${skipped}. Use 'Randomize tiles' to assign them.`);
+                next = addLog(next, `Imported ${imported} tasks into pool. Skipped ${skipped}.`);
                 return next;
               } catch (err) {
                 console.error("Import error", err);
@@ -1162,86 +1162,6 @@
               return next;
             }
 
-            case "ADMIN_RANDOMIZE_TILES": {
-              // Randomly assign tasks from pool to tiles, respecting difficulty distribution
-              const newRaceTiles = [...game.raceTiles];
-              const availableTasks = {
-                1: [...(game.taskPools?.["1"] || [])],
-                2: [...(game.taskPools?.["2"] || [])],
-                3: [...(game.taskPools?.["3"] || [])],
-              };
-
-              // Shuffle helper - use event ID as seed for consistency
-              const eventId = event._internalId || Date.now();
-              let seedState = eventId;
-              const seededRandom = () => {
-                seedState = (seedState * 9301 + 49297) % 233280;
-                return seedState / 233280;
-              };
-              
-              const shuffle = (arr) => {
-                const result = [...arr];
-                for (let i = result.length - 1; i > 0; i--) {
-                  const j = Math.floor(seededRandom() * (i + 1));
-                  [result[i], result[j]] = [result[j], result[i]];
-                }
-                return result;
-              };
-
-              // Shuffle tasks within each difficulty
-              Object.keys(availableTasks).forEach(diff => {
-                availableTasks[diff] = shuffle(availableTasks[diff]);
-              });
-
-              let assigned = 0;
-              let unassigned = 0;
-              const usedTaskIds = [];
-              const assignmentLog = []; // Track what we assign for debugging
-              const unassignedTiles = []; // Track tiles that couldn't be assigned
-              
-              // Assign tasks randomly
-              const shuffledTiles = shuffle(newRaceTiles.map(t => t.n));
-              shuffledTiles.forEach(tileNum => {
-                const tile = newRaceTiles.find(t => t.n === tileNum);
-                if (!tile) return;
-                
-                const diff = tile.difficulty || 1;
-                const pool = availableTasks[diff];
-                
-                if (pool.length > 0) {
-                  const task = pool.shift();
-                  tile.label = task.label;
-                  tile.maxCompletions = task.maxCompletions || 1;
-                  tile.minCompletions = task.minCompletions || 1;
-                  tile.instructions = task.instructions || "";
-                  tile.image = task.image || "";
-                  usedTaskIds.push(task.id);
-                  assignmentLog.push({ tile: tile.n, label: task.label, id: task.id });
-                  assigned++;
-                } else {
-                  // If pool exhausted, keep existing or reset to default
-                  tile.label = tile.label || `Task ${tile.n}`;
-                  unassigned++;
-                  unassignedTiles.push(tile.n);
-                }
-              });
-              
-              // Use the usedTaskIds we tracked during assignment (more accurate than label matching)
-
-              let next = { ...game, raceTiles: newRaceTiles, usedPoolTaskIds: usedTaskIds };
-              
-              if (unassigned > 0) {
-                next = addLog(next, `?? Randomly assigned tasks to tiles. ${assigned} tiles updated, ${unassigned} tiles could not be filled (tiles: ${unassignedTiles.join(', ')}).`);
-                // Show alert after a small delay to ensure it appears after the action completes
-                setTimeout(() => {
-                  alert(`Warning: ${unassigned} tile(s) could not be filled from the pool:\n\nTiles: ${unassignedTiles.join(', ')}\n\nThese tiles kept their existing labels or show default placeholders.`);
-                }, 100);
-              } else {
-                next = addLog(next, `Randomly assigned tasks to tiles. ${assigned} tiles updated.`);
-              }
-              
-              return next;
-            }
 
             case "ADMIN_RANDOMIZE_DIFFICULTIES": {
               // Randomly assign difficulties to tiles using weighted distribution.
@@ -2777,26 +2697,6 @@
                             ?? Randomize difficulties
                           </button>
 
-                          <button
-                            onClick={() => {
-                              setUi((u) => ({ ...u, optionsMenuOpen: false }));
-                              if (!checkAdminAuth()) {
-                                alert('Admin authentication required.');
-                                return;
-                              }
-                              if (confirm("Randomize all tiles with tasks from the pool? This will replace current tile labels.")) {
-                                dispatch({ type: "ADMIN_RANDOMIZE_TILES", adminName: auth.adminName, _internalId: Date.now() });
-                              }
-                            }}
-                            className={`w-full px-4 py-3 text-left text-sm border-b ${
-                              ui.darkMode 
-                                ? 'hover:bg-slate-700 text-slate-100 border-slate-700' 
-                                : 'hover:bg-slate-50 text-slate-900 border-slate-200'
-                            }`}
-                          >
-                            ?? Randomize tiles
-                          </button>
-
                           {checkMasterAdmin() && (
                             <>
                               <button
@@ -4078,7 +3978,7 @@
                           ? MaxCompletions: How many times points can be awarded<br/>
                           ? MinCompletions: Minimum player selections required to complete<br/>
                           ? Instructions and ImageURL are optional<br/>
-                          ? After import, use "Randomize tiles" to assign tasks to the board
+                          ? After import, tasks are added to the pool for difficulty randomization
                         </div>
                       </div>
 

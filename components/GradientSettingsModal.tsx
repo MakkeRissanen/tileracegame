@@ -107,7 +107,7 @@ export default function GradientSettingsModal({
       { easy: earlyEasy, medium: earlyMedium, hard: earlyHard },
       { easy: lateEasy, medium: lateMedium, hard: lateHard }
     );
-    onClose();
+    // Don't close immediately - let the handler close it after confirmation
   };
 
   const getTotalWeight = (e: number, m: number, h: number) => e + m + h;

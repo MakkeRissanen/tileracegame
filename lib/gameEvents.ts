@@ -187,23 +187,47 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         );
         let next = { ...game, teams };
 
-        // Update revealed tiles
+        // Update revealed tiles based on dynamic vision
         const revealedTiles = new Set(game.revealedTiles || []);
-        const CHUNK_SIZE = 8;
-
-        if (completedTile === MAX_TILE - 1) {
-          revealedTiles.add(MAX_TILE);
+        
+        // Always reveal first 4 tiles
+        for (let i = 1; i <= 4; i++) {
+          revealedTiles.add(i);
         }
 
-        const oldChunk = Math.floor((completedTile - 1) / CHUNK_SIZE);
-        const newChunk = Math.floor((nextPos - 1) / CHUNK_SIZE);
-
-        for (let chunk = oldChunk + 1; chunk <= newChunk; chunk++) {
-          const chunkStart = chunk * CHUNK_SIZE + 1;
-          const chunkEnd = Math.min((chunk + 1) * CHUNK_SIZE, MAX_TILE - 1);
-          for (let i = chunkStart; i <= chunkEnd; i++) {
-            revealedTiles.add(i);
+        // Find farthest team position
+        let farthestPos = 1;
+        game.teams.forEach((team) => {
+          if (team.pos > farthestPos) {
+            farthestPos = team.pos;
           }
+        });
+
+        // Determine vision range based on position
+        let visionAhead;
+        if (farthestPos >= MAX_TILE - 5) {
+          // Last 5 tiles: 1 tile ahead
+          visionAhead = 1;
+        } else if (farthestPos >= MAX_TILE - 10) {
+          // Last 10 tiles (before final 5): 2 tiles ahead
+          visionAhead = 2;
+        } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
+          // Halfway point: 3 tiles ahead
+          visionAhead = 3;
+        } else {
+          // Normal: 4 tiles ahead
+          visionAhead = 4;
+        }
+
+        // Reveal tiles from farthest position up to vision range (only add, never remove)
+        // But NEVER reveal the final tile until a team reaches it
+        for (let i = 1; i <= Math.min(farthestPos + visionAhead, MAX_TILE - 1); i++) {
+          revealedTiles.add(i);
+        }
+        
+        // Only reveal final tile if a team has reached it
+        if (farthestPos >= MAX_TILE) {
+          revealedTiles.add(MAX_TILE);
         }
 
         next = { ...next, revealedTiles: Array.from(revealedTiles) };
@@ -1051,19 +1075,43 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         } else {
           // Re-enable fog of war - reset revealed tiles to current team progress
           const revealedTiles = new Set<number>();
-          const CHUNK_SIZE = 8;
           
-          game.teams.forEach((team) => {
-            const pos = team.pos;
-            const chunk = Math.floor((pos - 1) / CHUNK_SIZE);
-            for (let c = 0; c <= chunk; c++) {
-              const chunkStart = c * CHUNK_SIZE + 1;
-              const chunkEnd = Math.min((c + 1) * CHUNK_SIZE, MAX_TILE - 1);
-              for (let i = chunkStart; i <= chunkEnd; i++) {
-                revealedTiles.add(i);
+          // Always reveal first 4 tiles
+          for (let i = 1; i <= 4; i++) {
+            revealedTiles.add(i);
+          }
+          
+          if (game.teams && game.teams.length > 0) {
+            // Find farthest team position
+            let farthestPos = 1;
+            game.teams.forEach((team) => {
+              if (team.pos > farthestPos) {
+                farthestPos = team.pos;
               }
+            });
+
+            // Determine vision range based on position
+            let visionAhead;
+            if (farthestPos >= MAX_TILE - 5) {
+              visionAhead = 1;
+            } else if (farthestPos >= MAX_TILE - 10) {
+              visionAhead = 2;
+            } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
+              visionAhead = 3;
+            } else {
+              visionAhead = 4;
             }
-          });
+
+            // Reveal tiles from 1 to farthest + vision (but not final tile)
+            for (let i = 1; i <= Math.min(farthestPos + visionAhead, MAX_TILE - 1); i++) {
+              revealedTiles.add(i);
+            }
+            
+            // Only reveal final tile if a team has reached it
+            if (farthestPos >= MAX_TILE) {
+              revealedTiles.add(MAX_TILE);
+            }
+          }
           
           let next: GameState = { ...game, fogOfWarDisabled: mode, revealedTiles: Array.from(revealedTiles) };
           next = addLog(next, "Admin re-enabled fog of war");
@@ -1173,6 +1221,55 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           late: event.late,
         });
         
+        // Reset fog of war state at start of randomization
+        // It will be re-enabled if errors occur
+        let workingState = { ...game };
+        if (workingState.fogOfWarDisabled === "all") {
+          workingState.fogOfWarDisabled = "none";
+          // Reveal tiles based on team positions with dynamic vision
+          const revealedTiles = new Set<number>();
+          
+          // Always reveal first 4 tiles
+          for (let i = 1; i <= 4; i++) {
+            revealedTiles.add(i);
+          }
+          
+          if (workingState.teams && workingState.teams.length > 0) {
+            // Find farthest team position
+            let farthestPos = 1;
+            workingState.teams.forEach((team) => {
+              if (team.pos > farthestPos) {
+                farthestPos = team.pos;
+              }
+            });
+
+            // Determine vision range based on position
+            let visionAhead;
+            if (farthestPos >= MAX_TILE - 5) {
+              visionAhead = 1;
+            } else if (farthestPos >= MAX_TILE - 10) {
+              visionAhead = 2;
+            } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
+              visionAhead = 3;
+            } else {
+              visionAhead = 4;
+            }
+
+            // Reveal tiles from 1 to farthest + vision (but not final tile)
+            for (let i = 1; i <= Math.min(farthestPos + visionAhead, MAX_TILE - 1); i++) {
+              revealedTiles.add(i);
+            }
+            
+            // Only reveal final tile if a team has reached it
+            if (farthestPos >= MAX_TILE) {
+              revealedTiles.add(MAX_TILE);
+            }
+          }
+          
+          workingState.revealedTiles = Array.from(revealedTiles);
+          console.log("Reset fog of war state from previous error");
+        }
+        
         // Save gradient settings for future use (always in gradient mode now)
         const gradientSettings = {
           weights: { easy: 50, medium: 35, hard: 15 }, // Not used, for backward compatibility
@@ -1181,12 +1278,24 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           late: event.late || { easy: 20, medium: 35, hard: 45 },
         };
         
+        // IMPORTANT: Clear all "used" flags from task pools before randomization
+        const taskPools = { ...workingState.taskPools };
+        if (taskPools["1"]) {
+          taskPools["1"] = taskPools["1"].map(t => ({ ...t, used: false }));
+        }
+        if (taskPools["2"]) {
+          taskPools["2"] = taskPools["2"].map(t => ({ ...t, used: false }));
+        }
+        if (taskPools["3"]) {
+          taskPools["3"] = taskPools["3"].map(t => ({ ...t, used: false }));
+        }
+        
         // Check task pool availability first
         const MIN_REMAINING = 3;
-        const MIN_HARD_TILES = 18; // Minimum hard tiles required on board
-        const pool1 = game.taskPools?.["1"] || [];
-        const pool2 = game.taskPools?.["2"] || [];
-        const pool3 = game.taskPools?.["3"] || [];
+        const MIN_HARD_TILES = 17; // Minimum hard tiles required on board
+        const pool1 = taskPools["1"] || [];
+        const pool2 = taskPools["2"] || [];
+        const pool3 = taskPools["3"] || [];
 
         // Count available tasks in each pool
         const available = {
@@ -1239,33 +1348,23 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const minRandomHardTiles = MIN_HARD_TILES - fixedHardTiles; // Need at least 16 more hard tiles
         
         // Initialize raceTiles array with proper size
-        const raceTiles: RaceTile[] = new Array(game.raceTiles.length);
+        const raceTiles: RaceTile[] = new Array(workingState.raceTiles.length);
         
-        // Define sections for randomization order: early (0-33%), late (67-100%), middle (33-67%)
+        // Define sections for gradient distribution
         const earlyEnd = Math.floor(MAX_TILE * 0.33);
         const lateStart = Math.floor(MAX_TILE * 0.67);
         
-        // Randomization order: early -> late -> middle
+        // CRITICAL: Process tiles in SEQUENTIAL order (0 to MAX_TILE)
+        // This is required for consecutive tile checking to work properly
+        // The gradient weights are position-based, so we still get early/middle/late distribution
         const randomizationOrder: number[] = [];
-        
-        // Add early section (0 to earlyEnd-1)
-        for (let i = 0; i < earlyEnd; i++) {
+        for (let i = 0; i < workingState.raceTiles.length; i++) {
           randomizationOrder.push(i);
         }
         
-        // Add late section (lateStart to MAX_TILE-1)
-        for (let i = lateStart; i < game.raceTiles.length; i++) {
-          randomizationOrder.push(i);
-        }
-        
-        // Add middle section (earlyEnd to lateStart-1)
-        for (let i = earlyEnd; i < lateStart; i++) {
-          randomizationOrder.push(i);
-        }
-        
-        // Process tiles in the defined order
+        // Process tiles in sequential order
         for (const index of randomizationOrder) {
-          const tile = game.raceTiles[index];
+          const tile = workingState.raceTiles[index];
           let difficulty: 1 | 2 | 3;
           
           if (tile.n === MAX_TILE) {
@@ -1329,18 +1428,39 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             // Check if candidate would create too long a streak (but not if we're forcing hard)
             if (!forceHard && candidateDiff === prevDiff && streak >= getMaxStreak(candidateDiff)) {
               // Can't use this difficulty, pick different one
+              console.log(`Tile ${index}: Prevented streak - prevDiff=${prevDiff}, streak=${streak}, maxStreak=${getMaxStreak(candidateDiff)}, candidateDiff=${candidateDiff}`);
               const alternatives: (1 | 2 | 3)[] = [1, 2, 3].filter(d => d !== prevDiff) as (1 | 2 | 3)[];
               candidateDiff = alternatives[Math.floor(Math.random() * alternatives.length)];
+              console.log(`Tile ${index}: Changed to candidateDiff=${candidateDiff}`);
             }
             
             // Check pool availability - NEVER violate this constraint
             if (counts[candidateDiff] >= available[candidateDiff] - MIN_REMAINING) {
               if (forceHard) {
                 // Critical error: need to force hard tile but pool is exhausted
-                // Remove fog of war and log error
-                let errorState = { ...game };
-                errorState.fogOfWarDisabled = "all";
-                errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize difficulties - not enough hard tasks in pool to maintain max ${maxHardGap}-tile gaps between hard tiles. Fog of war disabled.`);
+                const clearedTiles = workingState.raceTiles.map(tile => ({
+                  ...tile,
+                  difficulty: 1 as 1 | 2 | 3,
+                  label: "",
+                  instructions: "",
+                  image: "",
+                  maxCompletions: 1,
+                  minCompletions: 1
+                }));
+                
+                const clearedPools = { ...workingState.taskPools };
+                if (clearedPools["1"]) clearedPools["1"] = clearedPools["1"].map(t => ({ ...t, used: false }));
+                if (clearedPools["2"]) clearedPools["2"] = clearedPools["2"].map(t => ({ ...t, used: false }));
+                if (clearedPools["3"]) clearedPools["3"] = clearedPools["3"].map(t => ({ ...t, used: false }));
+                
+                let errorState: GameState = { 
+                  ...workingState, 
+                  raceTiles: clearedTiles,
+                  taskPools: clearedPools,
+                  fogOfWarDisabled: "all",
+                  usedPoolTaskIds: []
+                };
+                errorState = addLog(errorState, `⚠️ ERROR: Not enough hard tasks to maintain max ${maxHardGap}-tile gaps. Tiles cleared, pools reset.`);
                 return errorState;
               }
               
@@ -1367,18 +1487,82 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
                 difficulty = validOptions[0].diff;
               } else {
                 // Critical error: no valid options available
-                let errorState = { ...game };
-                errorState.fogOfWarDisabled = "all";
-                errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize difficulties - task pools exhausted and no valid assignments possible. Fog of war disabled.`);
+                const clearedTiles = workingState.raceTiles.map(tile => ({
+                  ...tile,
+                  difficulty: 1 as 1 | 2 | 3,
+                  label: "",
+                  instructions: "",
+                  image: "",
+                  maxCompletions: 1,
+                  minCompletions: 1
+                }));
+                
+                const clearedPools = { ...workingState.taskPools };
+                if (clearedPools["1"]) clearedPools["1"] = clearedPools["1"].map(t => ({ ...t, used: false }));
+                if (clearedPools["2"]) clearedPools["2"] = clearedPools["2"].map(t => ({ ...t, used: false }));
+                if (clearedPools["3"]) clearedPools["3"] = clearedPools["3"].map(t => ({ ...t, used: false }));
+                
+                let errorState: GameState = { 
+                  ...workingState, 
+                  raceTiles: clearedTiles,
+                  taskPools: clearedPools,
+                  fogOfWarDisabled: "all",
+                  usedPoolTaskIds: []
+                };
+                errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize - task pools exhausted. Tiles cleared, pools reset.`);
                 return errorState;
               }
             } else {
               difficulty = candidateDiff;
             }
           }
+          
+          // FINAL SAFETY CHECK: Never allow more than 3 consecutive tiles of the same difficulty
+          // Count how many consecutive tiles before this one have the same difficulty
+          let consecutiveCount = 0;
+          for (let i = index - 1; i >= 0 && raceTiles[i]?.difficulty === difficulty; i--) {
+            consecutiveCount++;
+          }
+          
+          // If this would create 4+ in a row, force a different difficulty
+          if (consecutiveCount >= 3) {
+            console.log(`SAFETY: Tile ${index} would create ${consecutiveCount + 1} consecutive ${difficulty}s - forcing different difficulty`);
+            const alternatives: (1 | 2 | 3)[] = [1, 2, 3].filter(d => d !== difficulty) as (1 | 2 | 3)[];
+            
+            // Try to pick an alternative that has available pool space
+            let alternativeFound = false;
+            for (const altDiff of alternatives) {
+              if (counts[altDiff] < available[altDiff] - MIN_REMAINING) {
+                difficulty = altDiff;
+                alternativeFound = true;
+                console.log(`SAFETY: Changed to difficulty ${difficulty}`);
+                break;
+              }
+            }
+            
+            // If no alternative has space, just pick randomly from alternatives
+            if (!alternativeFound) {
+              difficulty = alternatives[Math.floor(Math.random() * alternatives.length)];
+              console.log(`SAFETY: Forced to difficulty ${difficulty} (pool may be exhausted)`);
+            }
+          }
 
           counts[difficulty]++;
-          raceTiles[index] = { ...tile, difficulty };
+          // Clear task data when assigning difficulty - tiles will be filled in the next step
+          raceTiles[index] = { 
+            ...tile, 
+            difficulty,
+            label: "",
+            instructions: "",
+            image: "",
+            maxCompletions: 1,
+            minCompletions: 1
+          };
+          
+          // Log assignment for debugging (first 15 tiles only)
+          if (index <= 14) {
+            console.log(`Tile ${index} (n=${tile.n}): assigned difficulty ${difficulty}, prevDiff=${raceTiles[index-1]?.difficulty}`);
+          }
         }
 
         // Check if we have enough hard tiles
@@ -1387,18 +1571,115 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           const shortfall = MIN_HARD_TILES - counts[3];
           let converted = 0;
           
-          // Convert tiles starting from index 5 (after fixed tiles)
-          for (let i = 5; i < raceTiles.length - 1 && converted < shortfall; i++) {
-            if (raceTiles[i].difficulty !== 3 && counts[3] < available[3] - MIN_REMAINING) {
-              const oldDiff: 1 | 2 | 3 = raceTiles[i].difficulty;
-              raceTiles[i] = { ...raceTiles[i], difficulty: 3 };
-              counts[oldDiff]--;
-              counts[3]++;
-              converted++;
+          console.log(`Need to convert ${shortfall} tiles to hard to meet MIN_HARD_TILES`);
+          
+          // Smart conversion: Find gaps between hard tiles and fill them
+          // Build a list of candidate positions with their gap sizes
+          const candidates: Array<{ index: number; gapSize: number; distanceFromEnd: number }> = [];
+          
+          for (let i = 5; i < raceTiles.length - 1; i++) {
+            if (raceTiles[i].difficulty !== 3) {
+              // Check if previous tile is hard (would create consecutive)
+              const prevIsHard = i > 0 && raceTiles[i - 1]?.difficulty === 3;
+              if (prevIsHard) continue; // Skip to avoid consecutive
+              
+              // Calculate gap size (distance to nearest hard tile before and after)
+              let gapBefore = 0;
+              for (let j = i - 1; j >= 0; j--) {
+                if (raceTiles[j]?.difficulty === 3) break;
+                gapBefore++;
+              }
+              let gapAfter = 0;
+              for (let j = i + 1; j < raceTiles.length; j++) {
+                if (raceTiles[j]?.difficulty === 3) break;
+                gapAfter++;
+              }
+              
+              const totalGap = gapBefore + gapAfter;
+              const distanceFromEnd = raceTiles.length - i;
+              
+              candidates.push({ index: i, gapSize: totalGap, distanceFromEnd });
             }
+          }
+          
+          // Sort candidates: prioritize larger gaps, and prefer later positions
+          candidates.sort((a, b) => {
+            if (Math.abs(a.gapSize - b.gapSize) > 3) {
+              return b.gapSize - a.gapSize; // Larger gaps first
+            }
+            return a.distanceFromEnd - b.distanceFromEnd; // Later positions preferred (smaller distance from end)
+          });
+          
+          // Convert tiles from the sorted candidate list
+          for (const candidate of candidates) {
+            if (converted >= shortfall) break;
+            if (counts[3] >= available[3] - MIN_REMAINING) break;
+            
+            const i = candidate.index;
+            const oldDiff: 1 | 2 | 3 = raceTiles[i].difficulty;
+            raceTiles[i] = { ...raceTiles[i], difficulty: 3 };
+            counts[oldDiff]--;
+            counts[3]++;
+            converted++;
+            console.log(`Converted tile ${i} (n=${raceTiles[i].n}) from ${oldDiff} to 3 (gap=${candidate.gapSize}, distFromEnd=${candidate.distanceFromEnd})`);
+          }
+          
+          if (converted < shortfall) {
+            console.warn(`Only converted ${converted}/${shortfall} tiles to hard - may not meet MIN_HARD_TILES due to consecutive limits`);
           }
         }
 
+        // Log assignment summary
+        console.log(`\n=== ASSIGNMENT COMPLETE: ${raceTiles.length} tiles assigned ===`);
+        console.log(`Counts: Easy=${counts[1]}, Medium=${counts[2]}, Hard=${counts[3]}`);
+        
+        // FINAL VALIDATION: Check for consecutive tile violations
+        console.log("\n=== FINAL VALIDATION ===");
+        let maxConsecutive = 0;
+        let consecutiveViolations: string[] = [];
+        let hardGapViolations: string[] = [];
+        
+        for (let i = 0; i < raceTiles.length; i++) {
+          const currentDiff = raceTiles[i].difficulty;
+          let consecutive = 1;
+          for (let j = i - 1; j >= 0 && raceTiles[j]?.difficulty === currentDiff; j--) {
+            consecutive++;
+          }
+          
+          if (consecutive > maxConsecutive) {
+            maxConsecutive = consecutive;
+          }
+          
+          if (consecutive >= 4) {
+            consecutiveViolations.push(`Tile ${i} (n=${raceTiles[i].n}): ${consecutive} consecutive difficulty ${currentDiff}`);
+          }
+          
+          // Check hard tile gaps
+          if (currentDiff !== 3) {
+            let gapSinceHard = 0;
+            for (let j = i - 1; j >= 0; j--) {
+              if (raceTiles[j]?.difficulty === 3) break;
+              gapSinceHard++;
+            }
+            if (gapSinceHard > 7) {
+              hardGapViolations.push(`Tile ${i} (n=${raceTiles[i].n}): ${gapSinceHard} tiles since last hard`);
+            }
+          }
+        }
+        
+        console.log(`Max consecutive: ${maxConsecutive}`);
+        if (consecutiveViolations.length > 0) {
+          console.error(`CONSECUTIVE VIOLATIONS FOUND:`, consecutiveViolations);
+        }
+        if (hardGapViolations.length > 0) {
+          console.error(`HARD GAP VIOLATIONS FOUND:`, hardGapViolations);
+        }
+        
+        console.log(`\\nPool availability check:`);
+        console.log(`Easy: need ${counts[1]}, have ${available[1]}, remaining after: ${available[1] - counts[1] - MIN_REMAINING}`);
+        console.log(`Medium: need ${counts[2]}, have ${available[2]}, remaining after: ${available[2] - counts[2] - MIN_REMAINING}`);
+        console.log(`Hard: need ${counts[3]}, have ${available[3]}, remaining after: ${available[3] - counts[3] - MIN_REMAINING}`);
+        
         // Validate we have enough tasks
         const warnings: string[] = [];
         if (counts[1] > available[1] - MIN_REMAINING) {
@@ -1410,15 +1691,144 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         if (counts[3] > available[3] - MIN_REMAINING) {
           warnings.push(`Hard pool needs ${counts[3] + MIN_REMAINING - available[3]} more tasks`);
         }
+        
+        console.log(`Warnings after pool check: ${warnings.length}`);
+        
+        // Add validation violations to warnings
+        if (consecutiveViolations.length > 0) {
+          warnings.push(`RULE VIOLATION: ${consecutiveViolations.length} consecutive tile violations`);
+        }
+        if (hardGapViolations.length > 0) {
+          warnings.push(`RULE VIOLATION: ${hardGapViolations.length} hard gap violations`);
+        }
 
-        let next: GameState = { ...game, raceTiles, gradientSettings };
+        // If there are warnings, stop and show error
+        if (warnings.length > 0) {
+          console.error(`⚠️ RANDOMIZATION FAILED - clearing tiles and resetting pools`);
+          console.error(`Warnings:`, warnings);
+          
+          // Clear tile task assignments AND difficulties
+          const clearedTiles = workingState.raceTiles.map(tile => ({
+            ...tile,
+            difficulty: 1 as 1 | 2 | 3,
+            label: "",
+            instructions: "",
+            image: "",
+            maxCompletions: 1,
+            minCompletions: 1
+          }));
+          
+          // Reset all pool "used" flags
+          const clearedPools = { ...workingState.taskPools };
+          if (clearedPools["1"]) {
+            clearedPools["1"] = clearedPools["1"].map(t => ({ ...t, used: false }));
+          }
+          if (clearedPools["2"]) {
+            clearedPools["2"] = clearedPools["2"].map(t => ({ ...t, used: false }));
+          }
+          if (clearedPools["3"]) {
+            clearedPools["3"] = clearedPools["3"].map(t => ({ ...t, used: false }));
+          }
+          
+          let errorState: GameState = { 
+            ...workingState, 
+            raceTiles: clearedTiles,
+            taskPools: clearedPools,
+            fogOfWarDisabled: "all",
+            usedPoolTaskIds: []
+          };
+          
+          const revealedTiles: number[] = [];
+          for (let i = 1; i <= MAX_TILE; i++) {
+            revealedTiles.push(i);
+          }
+          errorState.revealedTiles = revealedTiles;
+          errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize difficulties - ${warnings.join(", ")} - Tiles cleared, pools reset. Fix issues and try again.`);
+          return errorState;
+        }
+        
+        console.log(`✓ Validation passed - proceeding with tile randomization`);
+
+        let next: GameState = { ...workingState, raceTiles, gradientSettings };
         next.usedPoolTaskIds = [];
         
-        const logMsg = warnings.length > 0
-          ? `Admin randomized difficulties (E:${counts[1]} M:${counts[2]} H:${counts[3]}) - WARNING: ${warnings.join(", ")}`
-          : `Admin randomized difficulties (E:${counts[1]} M:${counts[2]} H:${counts[3]}, pools: ${available[1] - counts[1]}/${available[2] - counts[2]}/${available[3] - counts[3]} remaining)`;
+        const logMsg = `Admin randomized difficulties (E:${counts[1]} M:${counts[2]} H:${counts[3]}, pools: ${available[1] - counts[1]}/${available[2] - counts[2]}/${available[3] - counts[3]} remaining)`;
         
         next = addLog(next, logMsg);
+        
+        // Now randomize tile assignments based on the new difficulties
+        // Use the already cleared taskPools from above
+        const usedPoolTaskIds = new Set<string>();
+        
+        const tileWarnings: string[] = [];
+        const unfilledTiles: number[] = [];
+        
+        const finalRaceTiles = next.raceTiles.map((tile) => {
+          const difficulty = tile.difficulty;
+          const pool = taskPools[String(difficulty)] || [];
+          
+          // Find unused tasks in the pool
+          const unusedTasks = pool.filter((t) => !usedPoolTaskIds.has(t.id));
+          
+          if (unusedTasks.length === 0) {
+            // No unused tasks available, track this as an error
+            unfilledTiles.push(tile.n);
+            return tile;
+          }
+          
+          // Pick a random unused task
+          const randomIndex = Math.floor(Math.random() * unusedTasks.length);
+          const selectedTask = unusedTasks[randomIndex];
+          
+          // Mark task as used
+          usedPoolTaskIds.add(selectedTask.id);
+          const poolIndex = pool.findIndex((t) => t.id === selectedTask.id);
+          if (poolIndex !== -1) {
+            pool[poolIndex] = { ...selectedTask, used: true };
+          }
+          
+          // Create new tile with selected task
+          return {
+            ...tile,
+            label: selectedTask.label,
+            instructions: selectedTask.instructions || "",
+            image: selectedTask.image || "",
+            maxCompletions: selectedTask.maxCompletions || 1,
+            minCompletions: selectedTask.minCompletions || 1,
+          };
+        });
+        
+        // Add error for unfilled tiles
+        if (unfilledTiles.length > 0) {
+          tileWarnings.push(`Could not fill ${unfilledTiles.length} tile(s): ${unfilledTiles.join(", ")}`);
+        }
+        
+        next = { 
+          ...next, 
+          raceTiles: finalRaceTiles, 
+          taskPools, 
+          usedPoolTaskIds: Array.from(usedPoolTaskIds)
+        };
+        
+        // If there are tile assignment warnings, reveal all tiles and log error
+        if (tileWarnings.length > 0) {
+          const revealedTiles: number[] = [];
+          for (let i = 1; i <= MAX_TILE; i++) {
+            revealedTiles.push(i);
+          }
+          next = { 
+            ...next, 
+            revealedTiles,
+            fogOfWarDisabled: "all"
+          };
+          next = addLog(
+            next, 
+            `⚠️ ERROR: Tile randomization failed - ${tileWarnings.join(", ")} - Fog of war disabled`
+          );
+        } else {
+          next = addLog(next, `Admin randomized tiles from pools (assigned ${finalRaceTiles.length} tasks)`);
+        }
+        
         return next;
       }
 

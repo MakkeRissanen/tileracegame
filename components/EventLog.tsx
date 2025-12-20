@@ -23,7 +23,7 @@ export default function EventLog({ game, isDark }: EventLogProps) {
       >
         <div className="space-y-2">
           {game.log && game.log.length > 0 ? (
-            game.log.slice().reverse().slice(0, 50).map((entry) => (
+            game.log.map((entry) => (
               <div
                 key={entry.id}
                 className={`

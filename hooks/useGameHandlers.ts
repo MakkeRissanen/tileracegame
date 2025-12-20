@@ -245,6 +245,7 @@ export function useGameHandlers({
     earlyWeights?: { easy: number; medium: number; hard: number },
     lateWeights?: { easy: number; medium: number; hard: number }
   ) => {
+    if (!confirm("Apply gradient settings and randomize difficulties? This will reassign difficulty levels and tasks to all tiles.")) return;
     try {
       await dispatch({
         type: "ADMIN_RANDOMIZE_DIFFICULTIES",
@@ -253,7 +254,12 @@ export function useGameHandlers({
         early: earlyWeights,
         late: lateWeights,
       });
-      setShowGradientSettingsModal(false);
+      
+      // Small delay to let state update, then check for errors
+      setTimeout(() => {
+        // Check the game's recent logs for errors (this will be checked in the component after state updates)
+        setShowGradientSettingsModal(false);
+      }, 100);
     } catch (err) {
       alert(`Failed to apply gradient settings: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
