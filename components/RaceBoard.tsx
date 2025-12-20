@@ -156,7 +156,7 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
               </span>
             )}
             {game.doubledTiles?.includes(tile.n) && (
-              <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${isDark ? "bg-orange-900/60 text-orange-100" : "bg-orange-200 text-orange-900"}`}>
+              <span className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-orange-600 text-white border-orange-400" : "bg-orange-500 text-white border-orange-300"}`}>
                 2×
               </span>
             )}

@@ -26,18 +26,18 @@ export function btnClass(
 }
 
 export function inputClass(isDark: boolean, extraClasses: string = ""): string {
-  const base = "w-full rounded-xl border px-3 py-2 text-sm";
+  const base = "w-full rounded-xl px-3 py-2 text-sm";
   const style = isDark
-    ? "border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400"
-    : "border-slate-300 bg-white text-slate-900 placeholder-slate-400";
+    ? "bg-slate-800 text-slate-100 placeholder-slate-400 border border-slate-600"
+    : "bg-white text-slate-900 placeholder-slate-400 border border-slate-300";
   return `${base} ${style} ${extraClasses}`;
 }
 
 export function selectClass(isDark: boolean, extraClasses: string = ""): string {
-  const base = "w-full rounded-xl border px-3 py-2 text-sm";
+  const base = "w-full rounded-xl px-3 py-2 text-sm";
   const style = isDark
-    ? "border-slate-700 bg-slate-700 text-slate-100"
-    : "border-slate-300 bg-white text-slate-900";
+    ? "bg-slate-800 text-slate-100 border-2 border-slate-600"
+    : "bg-white text-slate-900 border-2 border-slate-300";
   return `${base} ${style} ${extraClasses}`;
 }
 

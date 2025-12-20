@@ -167,66 +167,60 @@ export default function UsePowerupModal({
 
   const getDifficultyColor = (diff: 1 | 2 | 3) => {
     if (isDark) {
-      if (diff === 1) return "bg-emerald-900/40 border-emerald-600";
-      if (diff === 2) return "bg-amber-900/40 border-amber-600";
-      return "bg-purple-900/40 border-purple-600";
+      if (diff === 1) return "bg-emerald-800 border-emerald-400";
+      if (diff === 2) return "bg-amber-800 border-amber-400";
+      return "bg-purple-800 border-purple-400";
     } else {
-      if (diff === 1) return "bg-emerald-200/80 border-emerald-500";
-      if (diff === 2) return "bg-amber-200/90 border-amber-500";
-      return "bg-purple-200/80 border-purple-500";
+      if (diff === 1) return "bg-emerald-800 border-emerald-400";
+      if (diff === 2) return "bg-amber-800 border-amber-400";
+      return "bg-purple-800 border-purple-400";
     }
   };
 
-  // Create serpentine grid for tile picker
-  const createSerpentineGrid = () => {
-    const rows: (RaceTile | null)[][] = [];
-    let currentRow: (RaceTile | null)[] = [];
-    let rowIndex = 0;
-
-    for (let i = 1; i <= MAX_TILE; i++) {
-      const tile = getRaceTile(i);
+  // Create serpentine layout matching RaceBoard
+  const createSerpentineLayout = () => {
+    const rows: { tiles: RaceTile[]; isReversed: boolean }[] = [];
+    let currentIndex = 0;
+    
+    while (currentIndex < game.raceTiles.length) {
+      const rowNumber = rows.length;
       
-      if (tile.n === MAX_TILE) {
-        // Final tile spans full row
-        if (currentRow.length > 0) {
-          while (currentRow.length < 4) currentRow.push(null);
-          rows.push(currentRow);
-          currentRow = [];
-        }
-        rows.push([tile, null, null, null]);
-        break;
+      // First row and every other pair of rows: 4 tiles left-to-right
+      if (rowNumber % 4 === 0) {
+        const tiles = game.raceTiles.slice(currentIndex, currentIndex + 4);
+        rows.push({ tiles, isReversed: false });
+        currentIndex += 4;
       }
-
-      currentRow.push(tile);
-
-      if (currentRow.length === 4) {
-        if (rowIndex % 2 === 1) {
-          currentRow.reverse();
-        }
-        rows.push(currentRow);
-        currentRow = [];
-        rowIndex++;
+      // Second row: 1 tile on the right (continuing from previous row)
+      else if (rowNumber % 4 === 1) {
+        const tiles = game.raceTiles.slice(currentIndex, currentIndex + 1);
+        rows.push({ tiles, isReversed: false });
+        currentIndex += 1;
+      }
+      // Third row: 4 tiles right-to-left
+      else if (rowNumber % 4 === 2) {
+        const tiles = game.raceTiles.slice(currentIndex, currentIndex + 4);
+        rows.push({ tiles, isReversed: true });
+        currentIndex += 4;
+      }
+      // Fourth row: 1 tile on the left (continuing from previous row)
+      else {
+        const tiles = game.raceTiles.slice(currentIndex, currentIndex + 1);
+        rows.push({ tiles, isReversed: true });
+        currentIndex += 1;
       }
     }
-
-    if (currentRow.length > 0) {
-      while (currentRow.length < 4) currentRow.push(null);
-      if (rowIndex % 2 === 1) {
-        currentRow.reverse();
-      }
-      rows.push(currentRow);
-    }
-
-    return rows.flat();
+    
+    return rows;
   };
 
-  const serpentineGrid = createSerpentineGrid();
+  const serpentineRows = createSerpentineLayout();
 
   // Get available tasks for changeTile powerup
   const getAvailableTasks = () => {
     if (selectedTile === null) return [];
     const diff = getTileDifficulty(selectedTile);
-    const pool = game.taskPools?.[diff] || [];
+    const pool = game.taskPools?.[String(diff)] || [];
     const used = new Set(game.usedPoolTaskIds || []);
     return pool.filter((task) => !task.used && !used.has(task.id));
   };
@@ -258,9 +252,9 @@ export default function UsePowerupModal({
   const otherTeams = game.teams?.filter((t) => t.id !== team.id) || [];
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} isDark={isDark} maxWidth="max-w-4xl">
-      <div className="space-y-4">
-        <div>
+    <Modal isOpen={isOpen} onClose={handleClose} isDark={isDark} maxWidth="max-w-4xl" zIndex="z-[60]">
+      <div className="flex flex-col" style={{ maxHeight: 'calc(85vh - 100px)' }}>
+        <div className="flex-shrink-0">
           <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
             Use Powerup
           </h2>
@@ -269,8 +263,16 @@ export default function UsePowerupModal({
           </p>
         </div>
 
+        {/* Scrollable Content Area */}
+        <div className="overflow-y-auto flex-1 px-1 pr-3 space-y-4 mt-4 min-h-0"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: isDark ? '#475569 #1e293b' : '#cbd5e1 #f1f5f9'
+          }}
+        >
+
         {/* Powerup Selection */}
-        <div>
+        <div className="relative z-50 mb-2">
           <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
             Select Powerup
           </label>
@@ -300,7 +302,7 @@ export default function UsePowerupModal({
 
         {/* Target Team Selection */}
         {powerupDef && (powerupDef.kind === "target" || selectedPowerup === "disablePowerup") && (
-          <div>
+          <div className="relative z-40 mb-2">
             <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
               Target Team
             </label>
@@ -321,7 +323,7 @@ export default function UsePowerupModal({
 
         {/* Target Powerup Selection (for disablePowerup and doublePowerup) */}
         {selectedPowerup === "disablePowerup" && targetTeamId && (
-          <div>
+          <div className="relative z-30 mb-2">
             <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
               Powerup to Disable
             </label>
@@ -350,7 +352,7 @@ export default function UsePowerupModal({
         )}
 
         {selectedPowerup === "doublePowerup" && (
-          <div>
+          <div className="relative z-30 mb-2">
             <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
               Powerup to Double
             </label>
@@ -385,75 +387,150 @@ export default function UsePowerupModal({
                 Select Tile
               </label>
               <div
-                className={`max-h-96 overflow-y-auto rounded-xl border p-2 ${
+                className={`max-h-none overflow-visible rounded-xl border p-3 space-y-3 ${
                   isDark ? "border-slate-600 bg-slate-900" : "border-slate-200 bg-slate-50"
                 }`}
               >
-                <div className="grid grid-cols-4 gap-1">
-                  {serpentineGrid.map((cell, idx) => {
-                    if (!cell) return <div key={`empty-${idx}`} className="w-full h-10"></div>;
+                {serpentineRows.map((row, rowIndex) => {
+                  const rowType = rowIndex % 4;
+                  const tilesToRender = row.isReversed ? [...row.tiles].reverse() : row.tiles;
+                  
+                  return (
+                    <div key={rowIndex} className="grid grid-cols-4 gap-3">
+                      {/* Empty cells for alignment */}
+                      {rowType === 1 && (
+                        <>
+                          <div></div>
+                          <div></div>
+                          <div></div>
+                        </>
+                      )}
+                      
+                      {tilesToRender.map((tile) => {
+                        const tileN = tile.n;
+                        const isRevealed = revealedTiles.has(tileN);
+                        const { allowed, reason } = canSelectTile(tileN);
+                        const isSelected = selectedTile === tileN;
+                        const isFinalTile = tileN === MAX_TILE;
+                        const teamsOnTile = game.teams?.filter((t) => t.pos === tileN) || [];
 
-                    const tile = cell;
-                    const tileN = tile.n;
-                    const isRevealed = revealedTiles.has(tileN);
-                    const { allowed, reason } = canSelectTile(tileN);
-                    const isSelected = selectedTile === tileN;
-                    const isFinalTile = tileN === MAX_TILE;
-                    const colSpan = isFinalTile ? "col-span-4" : "";
+                        return (
+                          <button
+                            key={tileN}
+                            onClick={() => allowed && setSelectedTile(tileN)}
+                            disabled={!allowed}
+                            className={`
+                              ${isFinalTile ? "col-span-4" : "col-span-1"}
+                              ${isFinalTile ? "h-32" : "h-24"}
+                              ${isSelected 
+                                ? isDark 
+                                  ? "border-amber-500 bg-amber-900/50 ring-2 ring-amber-400" 
+                                  : "border-amber-500 bg-amber-100 ring-2 ring-amber-400"
+                                : isRevealed && allowed
+                                ? `${getDifficultyColor(tile.difficulty)} hover:shadow-xl hover:scale-105`
+                                : !isRevealed
+                                ? isDark
+                                  ? "bg-slate-800 border-slate-700"
+                                  : "bg-slate-700 border-slate-600"
+                                : isDark
+                                ? "bg-slate-800 border-slate-700 opacity-50"
+                                : "bg-slate-700 border-slate-600 opacity-50"
+                              }
+                              border-2 rounded-xl shadow-lg
+                              relative overflow-hidden
+                              transition-all duration-200
+                              ${allowed && isRevealed ? "cursor-pointer" : "cursor-not-allowed"}
+                            `}
+                            title={allowed ? `Tile ${tileN}` : reason}
+                          >
+                            {/* Tile Number */}
+                            <div className={`absolute top-1 left-2 text-xs font-mono ${isRevealed ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`}>
+                              {tileN}
+                            </div>
 
-                    const teamsOnTile = game.teams?.filter((t) => t.pos === tileN) || [];
+                            {/* Powerup Badge */}
+                            {isRevealed && tile.rewardPowerupId && (
+                              <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold ${isDark ? "bg-yellow-900/60 text-yellow-100" : "bg-yellow-200 text-yellow-900"}`}>
+                                PWR
+                              </div>
+                            )}
 
-                    return (
-                      <button
-                        key={tileN}
-                        onClick={() => allowed && setSelectedTile(tileN)}
-                        disabled={!allowed}
-                        className={`relative w-full h-10 rounded border flex items-center justify-center gap-1 font-bold text-sm transition ${colSpan} ${
-                          isSelected
-                            ? isDark
-                              ? "border-amber-500 bg-amber-900/50 text-amber-200"
-                              : "border-amber-500 bg-amber-100 text-amber-900"
-                            : allowed && isRevealed
-                            ? `${getDifficultyColor(tile.difficulty)} hover:brightness-95 ${isDark ? "text-slate-100" : "text-slate-900"}`
-                            : !isRevealed
-                            ? isDark
-                              ? "border-slate-700 bg-slate-900/50 text-slate-600"
-                              : "border-slate-200 bg-slate-100 text-slate-400"
-                            : isDark
-                            ? "border-slate-700 bg-slate-900/50 text-slate-600 cursor-not-allowed"
-                            : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
-                        }`}
-                        title={allowed ? `Tile ${tileN}` : reason}
-                      >
-                        {isRevealed ? (
-                          <>
-                            <span>{tileN}</span>
+                            {/* Tile Content */}
+                            <div className="flex flex-col items-center justify-center h-full px-2 py-1">
+                              {!isRevealed ? (
+                                <div className={`text-3xl ${isDark ? "text-slate-600" : "text-slate-400"}`}>
+                                  ?
+                                </div>
+                              ) : (
+                                <>
+                                  {tile.image && (
+                                    <img
+                                      src={tile.image}
+                                      alt=""
+                                      className="w-12 h-12 object-contain mb-1"
+                                    />
+                                  )}
+                                  <p className={`text-center text-xs font-semibold line-clamp-2 text-white mt-1`}>
+                                    {tile.label}
+                                  </p>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Status Badges */}
+                            {isRevealed && (
+                              <div className="absolute bottom-1 right-1 flex gap-1">
+                                {changedTiles.has(tileN) && (
+                                  <span className={`px-1.5 py-0.5 rounded text-xs ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-700"}`}>
+                                    •
+                                  </span>
+                                )}
+                                {doubledTiles.has(tileN) && (
+                                  <span className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-orange-600 text-white border-orange-400" : "bg-orange-500 text-white border-orange-300"}`}>
+                                    2×
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Team Position Markers */}
                             {teamsOnTile.length > 0 && (
-                              <div className="absolute top-0.5 right-0.5 flex gap-0.5">
-                                {teamsOnTile.map((t, i) => (
+                              <div className="absolute bottom-1 left-1 flex flex-col gap-0.5">
+                                {teamsOnTile.slice(0, 3).map((t) => (
                                   <div
-                                    key={i}
-                                    className={`w-2 h-2 rounded-full border border-white/50 ${t.color}`}
-                                    title={t.name}
-                                  ></div>
+                                    key={t.id}
+                                    className={`px-1.5 py-0.5 rounded-full text-xs font-medium text-white ${t.color}`}
+                                    style={{
+                                      transform: teamsOnTile.length > 1 ? 'scale(0.75)' : undefined,
+                                    }}
+                                  >
+                                    {t.name}
+                                  </div>
                                 ))}
                               </div>
                             )}
-                          </>
-                        ) : (
-                          <span className="text-xl">?</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                          </button>
+                        );
+                      })}
+                      
+                      {/* Empty cells for single-tile rows */}
+                      {rowType === 3 && (
+                        <>
+                          <div></div>
+                          <div></div>
+                          <div></div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
         {/* Change Task Selection */}
         {selectedPowerup === "changeTile" && selectedTile !== null && (
-          <div>
+          <div className="relative z-20 mb-2">
             <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
               Replace with (unused task from pool)
             </label>
@@ -475,8 +552,12 @@ export default function UsePowerupModal({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4">
+        </div>
+
+        {/* Action Buttons - Fixed at Bottom */}
+        <div className="flex gap-3 pt-4 mt-4 border-t flex-shrink-0" style={{
+          borderColor: isDark ? '#475569' : '#e2e8f0'
+        }}>
           <Button onClick={handleClose} variant="secondary" isDark={isDark} className="flex-1">
             Cancel
           </Button>

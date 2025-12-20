@@ -37,6 +37,7 @@ export default function TileRaceGame() {
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [winningTeam, setWinningTeam] = useState<Team | null>(null);
   const [showUsePowerupModal, setShowUsePowerupModal] = useState(false);
+  const [usePowerupTeamId, setUsePowerupTeamId] = useState<string | null>(null);
   const [showAdminOptions, setShowAdminOptions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -98,14 +99,18 @@ export default function TileRaceGame() {
   };
 
   const handleUsePowerup = async (powerupId: string, data: any) => {
-    if (!myTeam) return;
+    const teamId = usePowerupTeamId || myTeam?.id;
+    if (!teamId) return;
+    
     try {
       await dispatch({
         type: "USE_POWERUP",
-        teamId: myTeam.id,
+        teamId,
         powerupId,
         ...data,
       });
+      // Reset state after successful use
+      setUsePowerupTeamId(null);
     } catch (err) {
       alert(`Failed to use powerup: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
@@ -114,11 +119,21 @@ export default function TileRaceGame() {
   const handleAdminUsePowerup = (teamId: string) => {
     const team = game.teams.find((t) => t.id === teamId);
     if (team) {
-      // Open the use powerup modal
+      setUsePowerupTeamId(teamId);
       setShowUsePowerupModal(true);
-      // Store the team ID for admin use
-      (window as any).__adminTeamId = teamId;
     }
+  };
+
+  const handleOpenUsePowerup = () => {
+    if (myTeam) {
+      setUsePowerupTeamId(myTeam.id);
+      setShowUsePowerupModal(true);
+    }
+  };
+
+  const handleCloseUsePowerup = () => {
+    setShowUsePowerupModal(false);
+    setUsePowerupTeamId(null);
   };
 
   const handleEditTeam = (teamId: string) => {
@@ -300,7 +315,7 @@ export default function TileRaceGame() {
             myTeam={null}
             isAdmin={isAdmin}
             onCompleteTile={handlers.handleCompleteTile}
-            onUsePowerup={() => setShowUsePowerupModal(true)}
+            onUsePowerup={handleOpenUsePowerup}
             onClaimPowerup={handleClaimPowerupFromBoard}
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
@@ -319,7 +334,7 @@ export default function TileRaceGame() {
             myTeam={myTeam}
             isAdmin={isAdmin}
             onCompleteTile={handlers.handleCompleteTile}
-            onUsePowerup={() => setShowUsePowerupModal(true)}
+            onUsePowerup={handleOpenUsePowerup}
             onClaimPowerup={handleClaimPowerupFromBoard}
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
@@ -334,16 +349,24 @@ export default function TileRaceGame() {
         )}
 
         {/* Use Powerup Modal */}
-        {myTeam && (
-          <UsePowerupModal
-            isOpen={showUsePowerupModal}
-            onClose={() => setShowUsePowerupModal(false)}
-            team={myTeam}
-            game={game}
-            isDark={isDark}
-            onUsePowerup={handleUsePowerup}
-          />
-        )}
+        {(() => {
+          const teamForPowerup = usePowerupTeamId 
+            ? game.teams.find(t => t.id === usePowerupTeamId)
+            : myTeam;
+          
+          if (!teamForPowerup) return null;
+          
+          return (
+            <UsePowerupModal
+              isOpen={showUsePowerupModal}
+              onClose={handleCloseUsePowerup}
+              team={teamForPowerup}
+              game={game}
+              isDark={isDark}
+              onUsePowerup={handleUsePowerup}
+            />
+          );
+        })()}
 
         {/* Admin Login Modal */}
         <AdminLoginModal
