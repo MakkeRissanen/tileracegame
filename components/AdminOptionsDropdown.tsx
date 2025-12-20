@@ -47,7 +47,7 @@ export default function AdminOptionsDropdown({
     { label: "👥 Form teams", onClick: () => { onClose(); onFormTeams(); } },
     { label: "📥 Import tasks", onClick: () => { onClose(); onImportTasks(); } },
     { label: "📦 Import powerups", onClick: () => { onClose(); onImportPowerups(); } },
-    { label: "🎲 Randomize difficulties", onClick: () => { onClose(); onGradientSettings(); } },
+    { label: "⚙️ Gradient settings", onClick: () => { onClose(); onGradientSettings(); } },
     { label: "🎲 Randomize tiles", onClick: onRandomizeTiles },
     { label: fogOfWarLabel, onClick: () => { onClose(); onDisableFogOfWar(); } },
     { label: "💾 Download Game Backup", onClick: () => { onClose(); alert("Download backup - Coming soon!"); } },

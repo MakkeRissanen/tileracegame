@@ -76,12 +76,15 @@ export function useGameHandlers({
     }
   }, [dispatch]);
 
-  const handleRandomizeDifficulties = useCallback(async () => {
+  const handleRandomizeDifficulties = useCallback(async (gradientSettings?: { weights: { easy: number; medium: number; hard: number }; gradient: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }) => {
     if (!confirm("Randomize tile difficulties? This will reassign difficulty levels to all tiles.")) return;
     try {
       await dispatch({
         type: "ADMIN_RANDOMIZE_DIFFICULTIES",
-        weights: { easy: 20, medium: 20, hard: 16 },
+        weights: gradientSettings?.weights,
+        gradient: gradientSettings?.gradient,
+        early: gradientSettings?.early,
+        late: gradientSettings?.late,
       });
       setShowAdminOptions(false);
     } catch (err) {
@@ -256,6 +259,26 @@ export function useGameHandlers({
     }
   }, [dispatch, setShowGradientSettingsModal]);
 
+  const handleSaveGradientSettings = useCallback(async (
+    weights: { easy: number; medium: number; hard: number },
+    gradient: boolean,
+    earlyWeights?: { easy: number; medium: number; hard: number },
+    lateWeights?: { easy: number; medium: number; hard: number }
+  ) => {
+    try {
+      await dispatch({
+        type: "ADMIN_SAVE_GRADIENT_SETTINGS",
+        weights,
+        gradient,
+        early: earlyWeights,
+        late: lateWeights,
+      });
+      setShowGradientSettingsModal(false);
+    } catch (err) {
+      alert(`Failed to save gradient settings: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }, [dispatch, setShowGradientSettingsModal]);
+
   return {
     handleSelectTeam,
     handleLogout,
@@ -276,5 +299,6 @@ export function useGameHandlers({
     handleSetTeamPassword,
     handleUndo,
     handleGradientSettings,
+    handleSaveGradientSettings,
   };
 }

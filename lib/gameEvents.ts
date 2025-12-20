@@ -1167,9 +1167,23 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       }
 
       case "ADMIN_RANDOMIZE_DIFFICULTIES": {
+        // Debug: Log what settings are received
+        console.log("ADMIN_RANDOMIZE_DIFFICULTIES event:", {
+          early: event.early,
+          late: event.late,
+        });
+        
+        // Save gradient settings for future use (always in gradient mode now)
+        const gradientSettings = {
+          weights: { easy: 50, medium: 35, hard: 15 }, // Not used, for backward compatibility
+          gradient: true,
+          early: event.early || { easy: 70, medium: 25, hard: 5 },
+          late: event.late || { easy: 20, medium: 35, hard: 45 },
+        };
+        
         // Check task pool availability first
         const MIN_REMAINING = 3;
-        const MIN_HARD_TILES = 17; // Minimum hard tiles required on board
+        const MIN_HARD_TILES = 18; // Minimum hard tiles required on board
         const pool1 = game.taskPools?.["1"] || [];
         const pool2 = game.taskPools?.["2"] || [];
         const pool3 = game.taskPools?.["3"] || [];
@@ -1182,12 +1196,38 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         };
 
         // Assign difficulties with constraints
-        const weights = event.weights || { easy: 50, medium: 35, hard: 15 };
-        const totalWeight = weights.easy + weights.medium + weights.hard;
-        const normalized = {
-          easy: weights.easy / totalWeight,
-          medium: weights.medium / totalWeight,
-          hard: weights.hard / totalWeight,
+        const earlyThreshold = Math.floor(MAX_TILE * 0.3); // First ~30% of tiles (tiles 1-17 out of 56)
+        const lateThreshold = Math.floor(MAX_TILE * 0.7);  // Last ~30% of tiles (tiles 40-56 out of 56)
+        
+        // Helper function to get normalized weights based on position
+        // Early game: first 30% use early weights
+        // Middle game: 30%-70% blend between early and late weights
+        // Late game: last 30% use late weights
+        const getNormalizedWeights = (index: number) => {
+          let weights;
+          
+          if (index < earlyThreshold) {
+            // Early game: use early weights
+            weights = gradientSettings.early;
+          } else if (index >= lateThreshold) {
+            // Late game: use late weights
+            weights = gradientSettings.late;
+          } else {
+            // Middle game: blend early and late weights based on position
+            const middleProgress = (index - earlyThreshold) / (lateThreshold - earlyThreshold);
+            weights = {
+              easy: Math.round(gradientSettings.early.easy * (1 - middleProgress) + gradientSettings.late.easy * middleProgress),
+              medium: Math.round(gradientSettings.early.medium * (1 - middleProgress) + gradientSettings.late.medium * middleProgress),
+              hard: Math.round(gradientSettings.early.hard * (1 - middleProgress) + gradientSettings.late.hard * middleProgress),
+            };
+          }
+          
+          const totalWeight = weights.easy + weights.medium + weights.hard;
+          return {
+            easy: weights.easy / totalWeight,
+            medium: weights.medium / totalWeight,
+            hard: weights.hard / totalWeight,
+          };
         };
 
         // Count tiles that must be each difficulty
@@ -1196,10 +1236,36 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         // First pass: assign fixed tiles and count them
         // Tile 1-2: easy, Tile 3-4: medium, Tile 5: hard, Final tile: hard
         const fixedHardTiles = 2; // Tile 5 and tile 56
-        const minRandomHardTiles = MIN_HARD_TILES - fixedHardTiles; // Need at least 15 more hard tiles
+        const minRandomHardTiles = MIN_HARD_TILES - fixedHardTiles; // Need at least 16 more hard tiles
         
-        // Force first 5 tiles: easy, easy, medium, medium, hard; and final tile to be hard
-        const raceTiles: RaceTile[] = game.raceTiles.map((tile, index) => {
+        // Initialize raceTiles array with proper size
+        const raceTiles: RaceTile[] = new Array(game.raceTiles.length);
+        
+        // Define sections for randomization order: early (0-33%), late (67-100%), middle (33-67%)
+        const earlyEnd = Math.floor(MAX_TILE * 0.33);
+        const lateStart = Math.floor(MAX_TILE * 0.67);
+        
+        // Randomization order: early -> late -> middle
+        const randomizationOrder: number[] = [];
+        
+        // Add early section (0 to earlyEnd-1)
+        for (let i = 0; i < earlyEnd; i++) {
+          randomizationOrder.push(i);
+        }
+        
+        // Add late section (lateStart to MAX_TILE-1)
+        for (let i = lateStart; i < game.raceTiles.length; i++) {
+          randomizationOrder.push(i);
+        }
+        
+        // Add middle section (earlyEnd to lateStart-1)
+        for (let i = earlyEnd; i < lateStart; i++) {
+          randomizationOrder.push(i);
+        }
+        
+        // Process tiles in the defined order
+        for (const index of randomizationOrder) {
+          const tile = game.raceTiles[index];
           let difficulty: 1 | 2 | 3;
           
           if (tile.n === MAX_TILE) {
@@ -1211,21 +1277,48 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           } else if (index === 4) {
             difficulty = 3; // Tile 5: hard
           } else {
-            // Check consecutive tiles to prevent streaks
-            const lastQuarter = index >= Math.floor(MAX_TILE * 0.75); // Last 1/4 of board (tiles 43+)
-            const maxStreak = lastQuarter ? 3 : 2;
+            // Get position-based weights
+            const normalized = getNormalizedWeights(index);
             
-            let streak = 1;
-            let prevDiff: 1 | 2 | 3 | undefined = raceTiles[index - 1]?.difficulty;
-            for (let i = index - 2; i >= 0 && raceTiles[i]?.difficulty === prevDiff; i--) {
-              streak++;
+            // Check consecutive tiles to prevent streaks
+            const isAfterHalfway = index >= Math.floor(MAX_TILE / 2); // After tile 28 (halfway)
+            
+            // Check distance to last hard tile (max 7 non-hard tiles between hards)
+            // Only check tiles that have been assigned so far
+            const maxHardGap = 7;
+            let tilesSinceLastHard = 0;
+            for (let i = index - 1; i >= 0; i--) {
+              if (!raceTiles[i]) continue; // Skip unassigned tiles
+              if (raceTiles[i].difficulty === 3) break;
+              tilesSinceLastHard++;
             }
             
-            // Random assignment based on weights, but check availability and streak
+            // Check streak only among assigned adjacent tiles
+            let streak = 1;
+            let prevDiff: 1 | 2 | 3 | undefined = raceTiles[index - 1]?.difficulty;
+            if (prevDiff) {
+              for (let i = index - 2; i >= 0 && raceTiles[i]?.difficulty === prevDiff; i--) {
+                streak++;
+              }
+            }
+            
+            // Function to get max streak for a difficulty
+            const getMaxStreak = (diff: 1 | 2 | 3) => {
+              if (isAfterHalfway && (diff === 2 || diff === 3)) {
+                return 3; // Allow 3 medium or hard in a row after halfway
+              }
+              return 2; // Default max 2 in a row
+            };
+            
+            // Random assignment based on position-specific weights
             const rand = Math.random();
             let candidateDiff: 1 | 2 | 3;
+            const forceHard = tilesSinceLastHard >= maxHardGap; // Remember if we need to force hard
             
-            if (rand < normalized.easy) {
+            // Force hard tile if it's been too long since last hard
+            if (forceHard) {
+              candidateDiff = 3;
+            } else if (rand < normalized.easy) {
               candidateDiff = 1;
             } else if (rand < normalized.easy + normalized.medium) {
               candidateDiff = 2;
@@ -1233,35 +1326,51 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
               candidateDiff = 3;
             }
             
-            // Check if candidate would create too long a streak
-            if (candidateDiff === prevDiff && streak >= maxStreak) {
+            // Check if candidate would create too long a streak (but not if we're forcing hard)
+            if (!forceHard && candidateDiff === prevDiff && streak >= getMaxStreak(candidateDiff)) {
               // Can't use this difficulty, pick different one
               const alternatives: (1 | 2 | 3)[] = [1, 2, 3].filter(d => d !== prevDiff) as (1 | 2 | 3)[];
               candidateDiff = alternatives[Math.floor(Math.random() * alternatives.length)];
             }
             
-            // Special rule: in last quarter, easy can only appear once in a row
-            if (lastQuarter && candidateDiff === 1 && prevDiff === 1) {
-              const alternatives: (1 | 2 | 3)[] = [2, 3];
-              candidateDiff = alternatives[Math.floor(Math.random() * alternatives.length)];
-            }
-            
-            // Check pool availability
+            // Check pool availability - NEVER violate this constraint
             if (counts[candidateDiff] >= available[candidateDiff] - MIN_REMAINING) {
-              // Fallback: assign to pool with most available space
+              if (forceHard) {
+                // Critical error: need to force hard tile but pool is exhausted
+                // Remove fog of war and log error
+                let errorState = { ...game };
+                errorState.fogOfWarDisabled = "all";
+                errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize difficulties - not enough hard tasks in pool to maintain max ${maxHardGap}-tile gaps between hard tiles. Fog of war disabled.`);
+                return errorState;
+              }
+              
+              // Fallback: assign to pool with most available space, but respect streak limits
               const space1 = available[1] - counts[1] - MIN_REMAINING;
               const space2 = available[2] - counts[2] - MIN_REMAINING;
               const space3 = available[3] - counts[3] - MIN_REMAINING;
               
-              if (space1 >= space2 && space1 >= space3 && space1 > 0) {
-                difficulty = 1;
-              } else if (space2 >= space3 && space2 > 0) {
-                difficulty = 2;
-              } else if (space3 > 0) {
-                difficulty = 3;
+              // Filter out options that would violate streak rules
+              const validOptions: Array<{ diff: 1 | 2 | 3, space: number }> = [];
+              if (space1 > 0 && !(prevDiff === 1 && streak >= getMaxStreak(1))) {
+                validOptions.push({ diff: 1, space: space1 });
+              }
+              if (space2 > 0 && !(prevDiff === 2 && streak >= getMaxStreak(2))) {
+                validOptions.push({ diff: 2, space: space2 });
+              }
+              if (space3 > 0 && !(prevDiff === 3 && streak >= getMaxStreak(3))) {
+                validOptions.push({ diff: 3, space: space3 });
+              }
+              
+              if (validOptions.length > 0) {
+                // Pick the option with most available space
+                validOptions.sort((a, b) => b.space - a.space);
+                difficulty = validOptions[0].diff;
               } else {
-                // Not enough tasks in any pool - use original tile difficulty
-                difficulty = tile.difficulty;
+                // Critical error: no valid options available
+                let errorState = { ...game };
+                errorState.fogOfWarDisabled = "all";
+                errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize difficulties - task pools exhausted and no valid assignments possible. Fog of war disabled.`);
+                return errorState;
               }
             } else {
               difficulty = candidateDiff;
@@ -1269,8 +1378,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           }
 
           counts[difficulty]++;
-          return { ...tile, difficulty };
-        });
+          raceTiles[index] = { ...tile, difficulty };
+        }
 
         // Check if we have enough hard tiles
         if (counts[3] < MIN_HARD_TILES) {
@@ -1302,7 +1411,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           warnings.push(`Hard pool needs ${counts[3] + MIN_REMAINING - available[3]} more tasks`);
         }
 
-        let next = { ...game, raceTiles };
+        let next: GameState = { ...game, raceTiles, gradientSettings };
         next.usedPoolTaskIds = [];
         
         const logMsg = warnings.length > 0
@@ -1310,6 +1419,18 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           : `Admin randomized difficulties (E:${counts[1]} M:${counts[2]} H:${counts[3]}, pools: ${available[1] - counts[1]}/${available[2] - counts[2]}/${available[3] - counts[3]} remaining)`;
         
         next = addLog(next, logMsg);
+        return next;
+      }
+
+      case "ADMIN_SAVE_GRADIENT_SETTINGS": {
+        const gradientSettings = {
+          weights: { easy: 50, medium: 35, hard: 15 }, // Not used, for backward compatibility  
+          gradient: true,
+          early: event.early || { easy: 70, medium: 25, hard: 5 },
+          late: event.late || { easy: 20, medium: 35, hard: 45 },
+        };
+        let next: GameState = { ...game, gradientSettings };
+        next = addLog(next, `Admin saved gradient settings`);
         return next;
       }
 

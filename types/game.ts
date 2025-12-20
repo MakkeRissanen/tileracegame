@@ -82,6 +82,12 @@ export interface GameState {
   admins: Admin[];
   log: LogEntry[];
   eventHistory?: GameState[];
+  gradientSettings?: {
+    weights: { easy: number; medium: number; hard: number };
+    gradient: boolean;
+    early?: { easy: number; medium: number; hard: number };
+    late?: { easy: number; medium: number; hard: number };
+  };
 }
 
 export interface PowerupDef {
@@ -187,6 +193,7 @@ export type GameEvent =
   | { type: "ADMIN_RANDOMIZE_TILES" }
   | { type: "ADMIN_SET_FOG_OF_WAR"; mode: "none" | "admin" | "all" }
   | { type: "ADMIN_RANDOMIZE_DIFFICULTIES"; weights?: { easy: number; medium: number; hard: number }; gradient?: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
+  | { type: "ADMIN_SAVE_GRADIENT_SETTINGS"; weights: { easy: number; medium: number; hard: number }; gradient: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
   | { type: "SET_TEAM_PASSWORD"; teamId: string; password: string; adminName?: string }
   | { type: "ADMIN_ADD_ADMIN"; name: string; password: string; isMaster: boolean }
   | { type: "ADMIN_REMOVE_ADMIN"; adminId: string }

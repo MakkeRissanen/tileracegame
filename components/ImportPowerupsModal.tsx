@@ -52,36 +52,45 @@ export default function ImportPowerupsModal({
         const delimiter = line.includes("\t") ? "\t" : ",";
         const parts = line.split(delimiter).map(p => p.trim());
 
-        if (parts.length < 6) {
-          setParseError(`Line ${i + 1}: Expected at least 6 columns (poweruptype, task, points/completion, max completions, min completions, claim type), got ${parts.length}`);
+        if (parts.length < 3) {
+          setParseError(`Line ${i + 1}: Expected at least 3 columns (poweruptype, task, points/completion), got ${parts.length}`);
           return;
         }
 
+        // Powerup type - cannot be empty
         const powerupType = parts[0];
         if (!powerupType) {
           setParseError(`Line ${i + 1}: Powerup type cannot be empty`);
           return;
         }
 
+        // Task label - cannot be empty
         const label = parts[1];
         if (!label) {
           setParseError(`Line ${i + 1}: Task label cannot be empty`);
           return;
         }
 
-        const pointsPerCompletion = parseInt(parts[2], 10);
-        if (isNaN(pointsPerCompletion) || pointsPerCompletion < 1) {
+        // Points per completion - cannot be empty (allows decimals)
+        if (!parts[2] || parts[2].trim() === "") {
+          setParseError(`Line ${i + 1}: Points per completion cannot be empty`);
+          return;
+        }
+        const pointsPerCompletion = parseFloat(parts[2]);
+        if (isNaN(pointsPerCompletion) || pointsPerCompletion <= 0) {
           setParseError(`Line ${i + 1}: Points per completion must be a positive number, got "${parts[2]}"`);
           return;
         }
 
-        const maxCompletions = parseInt(parts[3], 10);
+        // Max completions - default to 1 if empty
+        const maxCompletions = parts[3] && parts[3].trim() !== "" ? parseInt(parts[3], 10) : 1;
         if (isNaN(maxCompletions) || maxCompletions < 1) {
           setParseError(`Line ${i + 1}: Max completions must be a positive number, got "${parts[3]}"`);
           return;
         }
 
-        const minCompletions = parseInt(parts[4], 10);
+        // Min completions - default to 1 if empty
+        const minCompletions = parts[4] && parts[4].trim() !== "" ? parseInt(parts[4], 10) : 1;
         if (isNaN(minCompletions) || minCompletions < 1) {
           setParseError(`Line ${i + 1}: Min completions must be a positive number, got "${parts[4]}"`);
           return;
@@ -92,6 +101,11 @@ export default function ImportPowerupsModal({
           return;
         }
 
+        // Claim type - cannot be empty
+        if (!parts[5] || parts[5].trim() === "") {
+          setParseError(`Line ${i + 1}: Claim type cannot be empty`);
+          return;
+        }
         const claimType = parts[5].toLowerCase();
         if (!["eachteam", "firstteam", "unlimited"].includes(claimType)) {
           setParseError(`Line ${i + 1}: Claim type must be "eachTeam", "firstTeam", or "unlimited", got "${parts[5]}"`);
@@ -99,8 +113,16 @@ export default function ImportPowerupsModal({
         }
 
         const normalizedClaimType = claimType === "eachteam" ? "eachTeam" : claimType === "firstteam" ? "firstTeam" : "unlimited";
-        const instructions = parts[6] || "";
+        
+        // Instructions - default to "No further instructions given." if empty
+        const instructions = parts[6] && parts[6].trim() !== "" ? parts[6] : "No further instructions given.";
+        
+        // URL - cannot be empty
         const image = parts[7] || "";
+        if (!image) {
+          setParseError(`Line ${i + 1}: URL cannot be empty`);
+          return;
+        }
 
         powerups.push({
           powerupType,
@@ -171,7 +193,7 @@ export default function ImportPowerupsModal({
             <div>clearCooldown, Quick Task, 1, 5, 1, unlimited, Simple task for everyone, </div>
           </div>
           <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Note: Claim type must be "eachTeam", "firstTeam", or "unlimited". Instructions and url are optional.
+            Note: Powerup type, task, points per completion, and claim type are required. Claim type: "eachTeam", "firstTeam", or "unlimited". Max/min completions default to 1 if empty. Instructions default to "No further instructions given." if empty. URL is required.
           </p>
         </div>
 

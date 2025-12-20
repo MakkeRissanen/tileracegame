@@ -311,6 +311,7 @@ export default function TileRaceGame() {
           isOpen={showGradientSettingsModal}
           isDark={isDark}
           onClose={() => setShowGradientSettingsModal(false)}
+          onSave={handlers.handleSaveGradientSettings}
           onApply={handlers.handleGradientSettings}
         />
 

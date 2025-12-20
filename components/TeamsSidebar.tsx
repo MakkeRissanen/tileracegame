@@ -118,12 +118,7 @@ export default function TeamsSidebar({
                     key={idx}
                     className={`
                       px-2 py-1 rounded-full text-xs
-                      ${member === team.captain
-                        ? `${team.color} text-white`
-                        : isDark
-                        ? "bg-slate-700 text-slate-300"
-                        : "bg-slate-100 text-slate-700"
-                      }
+                      ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-700"}
                     `}
                   >
                     {member}

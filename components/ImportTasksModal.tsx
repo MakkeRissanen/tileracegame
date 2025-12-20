@@ -41,30 +41,38 @@ export default function ImportTasksModal({
         const delimiter = line.includes("\t") ? "\t" : ",";
         const parts = line.split(delimiter).map(p => p.trim());
 
-        if (parts.length < 4) {
-          setParseError(`Line ${i + 1}: Expected at least 4 columns (task, difficulty, max completions, min completions), got ${parts.length}`);
+        if (parts.length < 2) {
+          setParseError(`Line ${i + 1}: Expected at least 2 columns (task, difficulty), got ${parts.length}`);
           return;
         }
 
+        // Task label - cannot be empty
         const label = parts[0];
         if (!label) {
           setParseError(`Line ${i + 1}: Task label cannot be empty`);
           return;
         }
 
+        // Difficulty - cannot be empty
+        if (!parts[1]) {
+          setParseError(`Line ${i + 1}: Difficulty cannot be empty`);
+          return;
+        }
         const difficulty = parseInt(parts[1], 10);
         if (isNaN(difficulty) || difficulty < 1 || difficulty > 3) {
           setParseError(`Line ${i + 1}: Difficulty must be 1 (Easy), 2 (Medium), or 3 (Hard), got "${parts[1]}"`);
           return;
         }
 
-        const maxCompletions = parseInt(parts[2], 10);
+        // Max completions - default to 1 if empty
+        const maxCompletions = parts[2] && parts[2].trim() !== "" ? parseInt(parts[2], 10) : 1;
         if (isNaN(maxCompletions) || maxCompletions < 1) {
           setParseError(`Line ${i + 1}: Max completions must be a positive number, got "${parts[2]}"`);
           return;
         }
 
-        const minCompletions = parseInt(parts[3], 10);
+        // Min completions - default to 1 if empty
+        const minCompletions = parts[3] && parts[3].trim() !== "" ? parseInt(parts[3], 10) : 1;
         if (isNaN(minCompletions) || minCompletions < 1) {
           setParseError(`Line ${i + 1}: Min completions must be a positive number, got "${parts[3]}"`);
           return;
@@ -75,8 +83,15 @@ export default function ImportTasksModal({
           return;
         }
 
-        const instructions = parts[4] || "";
+        // Instructions - default to "No further instructions given." if empty
+        const instructions = parts[4] && parts[4].trim() !== "" ? parts[4] : "No further instructions given.";
+        
+        // URL - cannot be empty
         const image = parts[5] || "";
+        if (!image) {
+          setParseError(`Line ${i + 1}: URL cannot be empty`);
+          return;
+        }
 
         tasks.push({
           difficulty,
@@ -154,7 +169,7 @@ export default function ImportTasksModal({
             <div>Build a feature, 3, 1, 1, Implement a new feature from scratch, </div>
           </div>
           <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Note: Difficulty should be 1 (Easy), 2 (Medium), or 3 (Hard). Max/min completions are player counts. Instructions and url are optional.
+            Note: Task and difficulty are required. Difficulty: 1 (Easy), 2 (Medium), 3 (Hard). Max/min completions default to 1 if empty. Instructions default to "No further instructions given." if empty. URL is required.
           </p>
         </div>
 
