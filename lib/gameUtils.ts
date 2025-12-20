@@ -19,16 +19,16 @@ export function clamp(n: number, min: number, max: number): number {
 
 export function colorForIndex(i: number): string {
   const palette = [
-    "bg-red-500",
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-amber-500",
-    "bg-purple-500",
-    "bg-pink-500",
-    "bg-cyan-500",
-    "bg-lime-500",
-    "bg-orange-500",
-    "bg-indigo-500",
+    "bg-rose-400",
+    "bg-sky-400",
+    "bg-emerald-400",
+    "bg-amber-400",
+    "bg-violet-400",
+    "bg-pink-400",
+    "bg-teal-400",
+    "bg-lime-400",
+    "bg-orange-400",
+    "bg-indigo-400",
   ];
   return palette[i % palette.length];
 }
@@ -40,21 +40,21 @@ export function powerupLabel(id: string): string {
 export function diffTint(d: number, isDark: boolean): string {
   const diff = Number(d) || 1;
   if (isDark) {
-    if (diff === 1) return "bg-emerald-900/40 border-emerald-600 text-slate-100";
-    if (diff === 2) return "bg-amber-900/40 border-amber-600 text-slate-100";
-    return "bg-purple-900/40 border-purple-600 text-slate-100";
+    if (diff === 1) return "bg-emerald-900/20 border-emerald-700 text-slate-100";
+    if (diff === 2) return "bg-amber-900/20 border-amber-700 text-slate-100";
+    return "bg-purple-900/20 border-purple-700 text-slate-100";
   } else {
-    if (diff === 1) return "bg-emerald-200/80 border-emerald-500 text-slate-900";
-    if (diff === 2) return "bg-amber-200/90 border-amber-500 text-slate-900";
-    return "bg-purple-200/80 border-purple-500 text-slate-900";
+    if (diff === 1) return "bg-emerald-100 border-emerald-400 text-slate-900";
+    if (diff === 2) return "bg-amber-100 border-amber-400 text-slate-900";
+    return "bg-purple-100 border-purple-400 text-slate-900";
   }
 }
 
 export function diffBadge(d: number): { txt: string; cls: string } {
   const diff = Number(d) || 1;
-  if (diff === 1) return { txt: "E", cls: "bg-emerald-700 text-white" };
-  if (diff === 2) return { txt: "M", cls: "bg-amber-700 text-white" };
-  return { txt: "H", cls: "bg-purple-700 text-white" };
+  if (diff === 1) return { txt: "E", cls: "bg-emerald-500 text-white" };
+  if (diff === 2) return { txt: "M", cls: "bg-amber-500 text-white" };
+  return { txt: "H", cls: "bg-purple-500 text-white" };
 }
 
 export function defaultRaceTiles(): RaceTile[] {

@@ -111,16 +111,16 @@
       }
       function colorForIndex(i) {
         const palette = [
-          "bg-red-500",
-          "bg-blue-500",
-          "bg-emerald-500",
-          "bg-amber-500",
-          "bg-purple-500",
-          "bg-pink-500",
-          "bg-cyan-500",
-          "bg-lime-500",
-          "bg-orange-500",
-          "bg-indigo-500",
+          "bg-rose-400",
+          "bg-sky-400",
+          "bg-emerald-400",
+          "bg-amber-400",
+          "bg-violet-400",
+          "bg-pink-400",
+          "bg-teal-400",
+          "bg-lime-400",
+          "bg-orange-400",
+          "bg-indigo-400",
         ];
         return palette[i % palette.length];
       }
@@ -132,20 +132,20 @@
       function diffTint(d, isDark) {
         const diff = Number(d) || 1;
         if (isDark) {
-          if (diff === 1) return "bg-emerald-900/40 border-emerald-600 text-slate-100";
-          if (diff === 2) return "bg-amber-900/40 border-amber-600 text-slate-100";
-          return "bg-purple-900/40 border-purple-600 text-slate-100";
+          if (diff === 1) return "bg-emerald-900/20 border-emerald-700 text-slate-100";
+          if (diff === 2) return "bg-amber-900/20 border-amber-700 text-slate-100";
+          return "bg-purple-900/20 border-purple-700 text-slate-100";
         } else {
-          if (diff === 1) return "bg-emerald-200/80 border-emerald-500 text-slate-900";
-          if (diff === 2) return "bg-amber-200/90 border-amber-500 text-slate-900";
-          return "bg-purple-200/80 border-purple-500 text-slate-900";
+          if (diff === 1) return "bg-emerald-100 border-emerald-400 text-slate-900";
+          if (diff === 2) return "bg-amber-100 border-amber-400 text-slate-900";
+          return "bg-purple-100 border-purple-400 text-slate-900";
         }
       }
       function diffBadge(d) {
         const diff = Number(d) || 1;
-        if (diff === 1) return { txt: "E", cls: "bg-emerald-700 text-white" };
-        if (diff === 2) return { txt: "M", cls: "bg-amber-700 text-white" };
-        return { txt: "H", cls: "bg-purple-700 text-white" };
+        if (diff === 1) return { txt: "E", cls: "bg-emerald-500 text-white" };
+        if (diff === 2) return { txt: "M", cls: "bg-amber-500 text-white" };
+        return { txt: "H", cls: "bg-purple-500 text-white" };
       }
 
       function defaultRaceTiles() {
@@ -453,11 +453,11 @@
                   alert(`🏆🎉 GAME OVER! 🏆🎉\n\n${team.name} completed the Final Tile!\n\n${playersText} are the WINNERS!`);
                 }, 100);
               } else if (nextPos === completedTile) {
-                next = addLog(next, `${team.name}, ${playersText} completed ${tileDesc(next, completedTile)} (already at finish) +${totalPoints}pts total → Current: ${tileDesc(next, nextPos)}`);
+                next = addLog(next, `${team.name}, ${playersText} completed ${tileDesc(next, completedTile)} (already at finish) +${pointsForDiff} pts each → Current: ${tileDesc(next, nextPos)}`);
               } else {
                 next = addLog(
                   next,
-                  `${team.name}, ${playersText} completed ${doubledText}Tile ${completedTile}: "${completedLabel}" (+${pointsForDiff} pts each, ${totalPoints} total) → Current: ${tileDesc(next, nextPos)}${
+                  `${team.name}, ${playersText} completed ${doubledText}Tile ${completedTile}: "${completedLabel}" (+${pointsForDiff} pts each) → Current: ${tileDesc(next, nextPos)}${
                     rewardRes.granted ? ` 🎁 Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
                   }`
                 );
@@ -2139,7 +2139,14 @@
           setEditInvText((editTeam.inventory || []).join("\n"));
           setEditMembersText((editTeam.members || []).join("\n"));
           setEditCaptain(editTeam.captain || "");
-          setEditPlayerPoints(editTeam.playerPoints ? { ...editTeam.playerPoints } : {});
+          
+          // Load player points from global game.playerPoints
+          const allPlayers = Array.from(new Set([editTeam.captain, ...(editTeam.members || [])].filter(Boolean)));
+          const playerPointsMap = {};
+          allPlayers.forEach(playerName => {
+            playerPointsMap[playerName] = (game.playerPoints || {})[playerName] || 0;
+          });
+          setEditPlayerPoints(playerPointsMap);
         }, [ui.editTeamId]);
 
         // Main tile modal edit fields
@@ -2455,15 +2462,80 @@
         }
 
         function renderEventLogEntry(message) {
-          // Identify primary team color from first team mentioned
-          let primaryColor = null;
           const teamNames = (teams || []).map((t) => t.name);
 
-          // Fast path: no teams yet ? just render text
-          if (!teamNames.length) {
+          // Check if this is an admin action (don't colorize team names)
+          const isAdminAction = message.includes('👑') || message.includes('Admin') || message.includes('admin') || (message.includes('set') && message.includes('tile'));
+
+          // Parse structured completion messages
+          const completionMatchDoubled = message.match(/^(.+?),\s*(.+?)\s+completed\s+(doubled\s+)?Tile\s+(\d+):\s+"(.+?)"\s+\((.+?)\)\s+→\s+Current:\s+(.+?)(?:\s+🎁\s+Reward gained:\s+(.+))?$/);
+          const winnerMatch = message.match(/^🏆🎉\s+(.+?)\s+completed\s+the\s+(?:doubled\s+)?Final Tile!\s+(.+?)\s+are the WINNERS!/);
+
+          // Format completion message with multiple lines
+          if (completionMatchDoubled) {
+            const [, teamName, players, doubled, tileNum, tileLabel, pointsInfo, currentTile, reward] = completionMatchDoubled;
+            const team = teams.find((t) => t.name === teamName);
+            
+            return (
+              <div className={`rounded-lg p-2 text-xs leading-relaxed space-y-1 ${ui.darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                <div className="break-words">
+                  {team ? (
+                    <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${team.color} ${ui.darkMode ? 'text-slate-900' : 'text-slate-900'}`}>
+                      🏴{teamName}
+                    </span>
+                  ) : teamName}
+                </div>
+                <div className="pl-2 text-[11px] break-words">
+                  🏁 {players} completed {doubled ? 'doubled ' : ''}<strong>Tile {tileNum}:</strong>
+                </div>
+                <div className="pl-4 text-[11px] break-words">
+                  "{tileLabel}"
+                </div>
+                <div className="pl-2 text-[11px] break-words">
+                  ⭐ {pointsInfo}
+                </div>
+                <div className="pl-2 text-[11px] break-words">
+                  📍 Current: {currentTile}
+                </div>
+                {reward && (
+                  <div className="pl-2 text-[11px] break-words">
+                    🎁 Reward: {reward}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // Winner message
+          if (winnerMatch) {
+            const [, teamName, players] = winnerMatch;
+            const team = teams.find((t) => t.name === teamName);
+            
+            return (
+              <div className={`rounded-lg p-3 text-xs leading-relaxed space-y-1 border-2 ${ui.darkMode ? 'bg-amber-900/20 border-amber-600 text-amber-100' : 'bg-amber-50 border-amber-400 text-amber-900'}`}>
+                <div className="text-base font-bold">🏆🎉 WINNERS! 🎉🏆</div>
+                <div className="break-words">
+                  {team ? (
+                    <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${team.color} ${ui.darkMode ? 'text-slate-900' : 'text-slate-900'}`}>
+                      🏴{teamName}
+                    </span>
+                  ) : teamName}
+                  {' completed the Final Tile!'}
+                </div>
+                <div className="pl-2 text-[11px] break-words">
+                  👥 {players}
+                </div>
+              </div>
+            );
+          }
+
+          // Fast path: no teams yet, or admin action - just render text
+          if (!teamNames.length || isAdminAction) {
             return <div className={`rounded-lg p-2 text-xs leading-relaxed ${ui.darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>{message}</div>;
           }
-          
+
+          // Identify primary team color from first team mentioned
+          let primaryColor = null;
           for (const tName of teamNames) {
             if (message.includes(tName)) {
               const team = teams.find((t) => t.name === tName);
@@ -2488,8 +2560,8 @@
             const team = teams.find((t) => t.name === tName);
             if (team) {
               parts.push(
-                <span key={`badge-${match.index}`} className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] text-white font-semibold ${team.color}`}>
-                  ?{tName}
+                <span key={`badge-${match.index}`} className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${team.color} ${ui.darkMode ? 'text-slate-900' : 'text-slate-900'}`}>
+                  🏴{tName}
                 </span>
               );
             } else {
@@ -2502,11 +2574,7 @@
           }
 
           return (
-            <div className={`rounded-lg p-2 text-xs leading-relaxed ${
-              primaryColor 
-                ? primaryColor + (ui.darkMode ? "/30 text-slate-100" : "/20 text-slate-800")
-                : ui.darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-700"
-            }`}>
+            <div className={`rounded-lg p-2 text-xs leading-relaxed break-words ${ui.darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
               {parts}
             </div>
           );
@@ -3667,7 +3735,11 @@
               {ui.completePickerTeamId && completeTeam && (() => {
                 const currentTile = getRaceTile(game, completeTeam.pos);
                 const maxCompletions = currentTile.maxCompletions || 1;
+                const minCompletions = currentTile.minCompletions || 1;
                 const allPlayers = [completeTeam.captain, ...(completeTeam.members || []).filter((m) => m !== completeTeam.captain)].filter(Boolean);
+                
+                // Use counters if minCompletions > 1 OR maxCompletions > 1
+                const useCounters = minCompletions > 1 || maxCompletions > 1;
                 
                 return (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -3686,7 +3758,11 @@
                       </div>
 
                       <div className="mt-4 space-y-3">
-                        {maxCompletions === 1 ? (
+                        {allPlayers.length === 0 ? (
+                          <div className={`rounded-lg border p-4 text-sm ${ui.darkMode ? 'border-slate-700 bg-slate-900 text-slate-300' : 'border-slate-300 bg-slate-50 text-slate-600'}`}>
+                            This team has no members set up. Please add team members first using the "Edit" button in the team card.
+                          </div>
+                        ) : !useCounters ? (
                           <div>
                             <label className={`text-xs font-semibold mb-2 block ${ui.darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Select player</label>
                             <div className="space-y-2">
@@ -3771,6 +3847,18 @@
                           <button
                             onClick={() => {
                               if (ui.completePickerPlayers.length === 0) return;
+                              
+                              // Check minimum completions requirement
+                              const rt = getRaceTile(game, completeTeam.pos);
+                              const doubledTilesInfo = game.doubledTilesInfo || {};
+                              const isDoubled = doubledTilesInfo[completeTeam.pos] ? true : false;
+                              const minRequired = isDoubled ? (rt.minCompletions || 1) * 2 : (rt.minCompletions || 1);
+                              
+                              if (ui.completePickerPlayers.length < minRequired) {
+                                alert(`This tile requires at least ${minRequired} completion${minRequired > 1 ? 's' : ''}.`);
+                                return;
+                              }
+                              
                               if (!checkTeamAuth(completeTeam.id)) {
                                 alert('You must be logged in as this team to complete tiles.');
                                 return;

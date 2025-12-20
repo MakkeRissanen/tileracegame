@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GameState, Team } from "@/types/game";
 import { Button, Modal, inputClass } from "./ui";
+import { diffTint } from "@/lib/gameUtils";
 
 interface TeamsSidebarProps {
   game: GameState;
@@ -29,8 +30,7 @@ export default function TeamsSidebar({
 }: TeamsSidebarProps) {
   const MAX_TILE = 56;
   const [showPlayerModal, setShowPlayerModal] = useState(false);
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
-  const [newPlayerName, setNewPlayerName] = useState("");
+  const [playerCompletions, setPlayerCompletions] = useState<{ [playerName: string]: number }>({});
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
 
   const getProgress = (team: Team) => {
@@ -44,28 +44,52 @@ export default function TeamsSidebar({
 
   const handleOpenPlayerModal = (teamId: string) => {
     setActiveTeamId(teamId);
-    setSelectedPlayers([]);
-    setNewPlayerName("");
+    setPlayerCompletions({});
     setShowPlayerModal(true);
   };
 
-  const handleAddPlayer = () => {
-    if (newPlayerName.trim() && !selectedPlayers.includes(newPlayerName.trim())) {
-      setSelectedPlayers([...selectedPlayers, newPlayerName.trim()]);
-      setNewPlayerName("");
+  const incrementPlayer = (playerName: string, maxCompletions: number) => {
+    const totalCompletions = Object.values(playerCompletions).reduce((sum, count) => sum + count, 0);
+    if (totalCompletions >= maxCompletions) return;
+    
+    setPlayerCompletions(prev => ({
+      ...prev,
+      [playerName]: (prev[playerName] || 0) + 1,
+    }));
+  };
+
+  const decrementPlayer = (playerName: string) => {
+    setPlayerCompletions(prev => {
+      const newCount = (prev[playerName] || 0) - 1;
+      if (newCount <= 0) {
+        const { [playerName]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [playerName]: newCount };
+    });
+  };
+
+  const handleConfirmComplete = (minCompletions: number) => {
+    if (!activeTeamId) return;
+    
+    // Convert playerCompletions object to array of player names (with duplicates for multiple completions)
+    const playerNames: string[] = [];
+    Object.entries(playerCompletions).forEach(([name, count]) => {
+      for (let i = 0; i < count; i++) {
+        playerNames.push(name);
+      }
+    });
+    
+    if (playerNames.length < minCompletions) {
+      alert(`This tile requires at least ${minCompletions} completion${minCompletions > 1 ? 's' : ''}.`);
+      return;
     }
-  };
-
-  const handleRemovePlayer = (player: string) => {
-    setSelectedPlayers(selectedPlayers.filter((p) => p !== player));
-  };
-
-  const handleConfirmComplete = () => {
-    if (activeTeamId && selectedPlayers.length > 0) {
-      onCompleteTile(activeTeamId, selectedPlayers);
+    
+    if (playerNames.length > 0) {
+      onCompleteTile(activeTeamId, playerNames);
       setShowPlayerModal(false);
       setActiveTeamId(null);
-      setSelectedPlayers([]);
+      setPlayerCompletions({});
     }
   };
 
@@ -221,82 +245,144 @@ export default function TeamsSidebar({
     </div>
 
       {/* Player Selection Modal */}
-      {showPlayerModal && (
-        <Modal isOpen={true} onClose={() => setShowPlayerModal(false)} isDark={isDark}>
-          <div className="space-y-4">
-            <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-              Select Players
-            </h2>
-            <p className={isDark ? "text-slate-300" : "text-slate-600"}>
-              Who completed this tile? Add player names below.
-            </p>
-
-            {/* Add Player Input */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newPlayerName}
-                onChange={(e) => setNewPlayerName(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleAddPlayer()}
-                placeholder="Player name"
-                className={inputClass(isDark)}
-              />
-              <Button variant="primary" isDark={isDark} onClick={handleAddPlayer}>
-                Add
-              </Button>
-            </div>
-
-            {/* Selected Players */}
-            {selectedPlayers.length > 0 && (
-              <div className="space-y-2">
-                <p className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                  Selected players:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedPlayers.map((player, idx) => (
-                    <div
-                      key={idx}
-                      className={`
-                        flex items-center gap-2 px-3 py-1 rounded-full text-sm
-                        ${isDark ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-900"}
-                      `}
-                    >
-                      <span>{player}</span>
-                      <button
-                        onClick={() => handleRemovePlayer(player)}
-                        className={`font-bold ${isDark ? "hover:text-red-400" : "hover:text-red-600"}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+      {showPlayerModal && activeTeamId && (() => {
+        const activeTeam = game.teams.find(t => t.id === activeTeamId);
+        if (!activeTeam) return null;
+        
+        const currentTile = game.raceTiles.find(t => t.n === activeTeam.pos);
+        const maxCompletions = currentTile?.maxCompletions || 1;
+        const minCompletions = currentTile?.minCompletions || 1;
+        const allPlayers = [activeTeam.captain, ...(activeTeam.members || []).filter((m) => m !== activeTeam.captain)].filter(Boolean);
+        const useCounters = minCompletions > 1 || maxCompletions > 1;
+        const totalCompletions = Object.values(playerCompletions).reduce((sum, count) => sum + count, 0);
+        
+        return (
+          <Modal isOpen={true} onClose={() => setShowPlayerModal(false)} isDark={isDark} maxWidth="max-w-sm" title="Who completed the tile?">
+            <div className="space-y-3">
+              {/* Tile Preview */}
+              <div className={`rounded-xl border-2 p-3 ${diffTint(currentTile?.difficulty || 1, isDark)}`}>
+                <div className="flex flex-col items-center">
+                  {currentTile?.image && (
+                    <img
+                      src={currentTile.image}
+                      alt=""
+                      className="w-16 h-16 object-contain mb-2"
+                    />
+                  )}
+                  <p className="text-center text-sm font-semibold">
+                    {currentTile?.label || `Tile ${activeTeam.pos}`}
+                  </p>
+                  {currentTile?.instructions && (
+                    <p className={`text-center text-xs mt-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {currentTile.instructions}
+                    </p>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                isDark={isDark}
-                onClick={() => setShowPlayerModal(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                isDark={isDark}
-                onClick={handleConfirmComplete}
-                disabled={selectedPlayers.length === 0}
-                className="flex-1"
-              >
-                Complete Tile
-              </Button>
+              {allPlayers.length === 0 ? (
+                <div className={`rounded-lg border p-3 text-xs ${isDark ? 'border-slate-700 bg-slate-900 text-slate-300' : 'border-slate-300 bg-slate-50 text-slate-600'}`}>
+                  This team has no members set up. Please add team members first using the "Edit Team" button.
+                </div>
+              ) : !useCounters ? (
+                <div className="space-y-2">
+                  {allPlayers.map((playerName, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setPlayerCompletions({ [playerName]: 1 })}
+                      className={`
+                        w-full px-3 py-2.5 rounded-lg border-2 transition-all relative
+                        ${playerCompletions[playerName] === 1
+                          ? isDark
+                            ? 'border-blue-500 bg-blue-900/40 text-white'
+                            : 'border-blue-500 bg-blue-50 text-slate-900'
+                          : isDark
+                            ? 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:bg-slate-800'
+                            : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+                        }
+                      `}
+                    >
+                      <span className="font-medium">{playerName}</span>
+                      {playerCompletions[playerName] === 1 && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {allPlayers.map((playerName, idx) => {
+                    const count = playerCompletions[playerName] || 0;
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 ${
+                          isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
+                        }`}
+                      >
+                        <span className="text-sm">{playerName}</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => decrementPlayer(playerName)}
+                            disabled={count === 0}
+                            className={`rounded text-sm font-bold w-8 h-8 flex items-center justify-center ${
+                              count > 0
+                                ? isDark
+                                  ? 'text-white hover:bg-slate-700'
+                                  : 'text-slate-900 hover:bg-slate-300'
+                                : 'invisible'
+                            }`}
+                          >
+                            <span className="text-xl leading-none">−</span>
+                          </button>
+                          <span className="text-sm font-semibold w-6 text-center">{count}</span>
+                          <button
+                            onClick={() => incrementPlayer(playerName, maxCompletions)}
+                            disabled={totalCompletions >= maxCompletions}
+                            className={`rounded text-sm font-bold w-8 h-8 flex items-center justify-center ${
+                              totalCompletions < maxCompletions
+                                ? isDark
+                                  ? 'bg-slate-900 text-white hover:bg-slate-800'
+                                  : 'bg-slate-800 text-white hover:bg-slate-700'
+                                : 'invisible'
+                            }`}
+                          >
+                            <span className="text-xl leading-none">+</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Total selections: {totalCompletions} (min: {minCompletions}, max: {maxCompletions})
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  isDark={isDark}
+                  onClick={() => setShowPlayerModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  isDark={isDark}
+                  onClick={() => handleConfirmComplete(minCompletions)}
+                  disabled={totalCompletions === 0 || allPlayers.length === 0}
+                  className="flex-1"
+                >
+                  Confirm {totalCompletions > 0 ? `(${totalCompletions})` : ''}
+                </Button>
+              </div>
             </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
     </>
   );
 }

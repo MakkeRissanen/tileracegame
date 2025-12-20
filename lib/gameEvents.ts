@@ -265,7 +265,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         if (completedTile === MAX_TILE) {
           next = addLog(
             next,
-            `🏆🎉 ${team.name} completed the ${doubledText}Final Tile! ${playersText} are the WINNERS! 🏆🎉 (+${pointsForDiff} pts each, ${totalPoints} total)${
+            `🏆🎉 ${team.name} completed the ${doubledText}Final Tile! ${playersText} are the WINNERS! 🏆🎉 (+${pointsForDiff} pts each)${
               rewardRes.granted ? ` 🎁 Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
             }`
           );
@@ -275,12 +275,12 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             `${team.name}, ${playersText} completed ${tileDesc(
               next,
               completedTile
-            )} (already at finish) +${totalPoints}pts total → Current: ${tileDesc(next, nextPos)}`
+            )} (already at finish) +${pointsForDiff} pts each → Current: ${tileDesc(next, nextPos)}`
           );
         } else {
           next = addLog(
             next,
-            `${team.name}, ${playersText} completed ${doubledText}Tile ${completedTile}: "${completedLabel}" (+${pointsForDiff} pts each, ${totalPoints} total) → Current: ${tileDesc(
+            `${team.name}, ${playersText} completed ${doubledText}Tile ${completedTile}: "${completedLabel}" (+${pointsForDiff} pts each) → Current: ${tileDesc(
               next,
               nextPos
             )}${rewardRes.granted ? ` 🎁 Reward gained: ${powerupLabel(rewardRes.granted)}` : ""}`
