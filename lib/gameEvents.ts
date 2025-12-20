@@ -4,6 +4,7 @@ import {
   MAX_TILE,
   Team,
   RaceTile,
+  PoolTask,
 } from "@/types/game";
 import {
   initialGame,
@@ -278,12 +279,12 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             )} (already at finish) +${pointsForDiff} pts each → Current: ${tileDesc(next, nextPos)}`
           );
         } else {
+          const baseMessage = `${team.name}, ${playersText} completed ${doubledText}Tile ${completedTile}: "${completedLabel}" (+${pointsForDiff} pts each) → Current: ${tileDesc(next, nextPos)}`;
+          const rewardMessage = rewardRes.granted ? `${team.name} gained ${powerupLabel(rewardRes.granted)}` : "";
+          
           next = addLog(
             next,
-            `${team.name}, ${playersText} completed ${doubledText}Tile ${completedTile}: "${completedLabel}" (+${pointsForDiff} pts each) → Current: ${tileDesc(
-              next,
-              nextPos
-            )}${rewardRes.granted ? ` 🎁 Reward gained: ${powerupLabel(rewardRes.granted)}` : ""}`
+            rewardMessage ? `${baseMessage}\n${rewardMessage}` : baseMessage
           );
         }
         return next;
@@ -376,11 +377,10 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
 
         let next = { ...game, teams, playerPoints };
         const playerList = playerNames.join(", ");
+        const powerupName = powerupLabel(tile.rewardPowerupId);
         next = addLog(
           next,
-          `${team.name} completed "${tile.label}" (${playerList}: +${pointsPerCompletion}pts each) → gained ${powerupLabel(
-            tile.rewardPowerupId
-          )}.`
+          `${team.name} gained ${powerupName}\n${playerList} completed "${tile.label}" (+${pointsPerCompletion} pts each)`
         );
         return next;
       }
@@ -1930,6 +1930,144 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         let next = { ...game, teams };
         const team = teams.find((t) => t.id === event.teamId);
         next = addLog(next, `Admin updated team: ${team?.name || "Unknown"}`);
+        return next;
+      }
+
+      case "ADMIN_UPDATE_POWERUP_TILE": {
+        const powerupTiles = (game.powerupTiles || []).map((t) => {
+          if (t.id === event.tileId) {
+            return { ...t, ...event.updates };
+          }
+          return t;
+        });
+        
+        let teams = game.teams;
+        // Update team claims if provided
+        if (event.teamClaims && Array.isArray(event.teamClaims)) {
+          teams = game.teams.map((team) => {
+            const claimUpdate = event.teamClaims!.find((c: any) => c.teamId === team.id);
+            if (claimUpdate) {
+              const claimedPowerupTiles = team.claimedPowerupTiles || [];
+              const hasClaim = claimedPowerupTiles.includes(event.tileId);
+              
+              if (claimUpdate.claimed && !hasClaim) {
+                // Add claim
+                return { ...team, claimedPowerupTiles: [...claimedPowerupTiles, event.tileId] };
+              } else if (!claimUpdate.claimed && hasClaim) {
+                // Remove claim
+                return { ...team, claimedPowerupTiles: claimedPowerupTiles.filter((id) => id !== event.tileId) };
+              }
+            }
+            return team;
+          });
+        }
+        
+        let next = { ...game, powerupTiles, teams };
+        const tile = powerupTiles.find((t) => t.id === event.tileId);
+        next = addLog(next, `👑 Admin updated powerup tile: ${tile?.label || "Unknown"}`);
+        return next;
+      }
+
+      case "ADMIN_UPDATE_POOL_TASK": {
+        const taskPools = { ...game.taskPools };
+        let updated = false;
+        let updatedTask: PoolTask | undefined;
+        
+        for (const difficulty of [1, 2, 3]) {
+          if (taskPools[difficulty]) {
+            taskPools[difficulty] = taskPools[difficulty].map((t) => {
+              if (t.id === event.taskId) {
+                updated = true;
+                updatedTask = { ...t, ...event.updates };
+                return updatedTask;
+              }
+              return t;
+            });
+          }
+        }
+        
+        if (!updated) return game;
+        
+        let next = { ...game, taskPools };
+        next = addLog(next, `👑 Admin updated pool task: ${updatedTask?.label || "Unknown"}`);
+        return next;
+      }
+
+      case "CLAIM_POWERUP_TILE": {
+        const team = game.teams.find((t) => t.id === event.teamId);
+        const tile = (game.powerupTiles || []).find((pt) => pt.id === event.powerTileId);
+        if (!team || !tile) return game;
+
+        // Validate claim type
+        const alreadyClaimed = (team.claimedPowerupTiles || []).includes(tile.id);
+        if (tile.claimType === "eachTeam" && alreadyClaimed) {
+          return addLog(game, `⚠️ ${team.name} already claimed this powerup`);
+        }
+        
+        if (tile.claimType === "firstTeam") {
+          const otherTeamClaimed = game.teams.some(
+            (t) => t.id !== team.id && (t.claimedPowerupTiles || []).includes(tile.id)
+          );
+          if (otherTeamClaimed) {
+            return addLog(game, `⚠️ Another team already claimed this powerup`);
+          }
+        }
+
+        // Validate reward exists
+        if (!tile.rewardPowerupId) {
+          return addLog(game, `⚠️ Cannot claim: powerup tile has no reward`);
+        }
+
+        // Validate player names
+        if (!event.playerNames || event.playerNames.length === 0) {
+          return addLog(game, `⚠️ Cannot claim: no players selected`);
+        }
+
+        const minCompletions = tile.minCompletions || 1;
+        const maxCompletions = tile.maxCompletions || 1;
+        if (event.playerNames.length < minCompletions || event.playerNames.length > maxCompletions) {
+          return addLog(
+            game,
+            `⚠️ Cannot claim: must have ${minCompletions}-${maxCompletions} completions`
+          );
+        }
+
+        // Update team: add claimed tile, award points, give powerup
+        let next = { ...game };
+        next.teams = next.teams.map((t) => {
+          if (t.id !== team.id) return t;
+
+          const updatedTeam = { ...t };
+          
+          // Add to claimed powerup tiles
+          updatedTeam.claimedPowerupTiles = [
+            ...(t.claimedPowerupTiles || []),
+            tile.id,
+          ];
+
+          // Award points to players
+          const pointsPerCompletion = tile.pointsPerCompletion || 1;
+          const updatedPlayerPoints = { ...t.playerPoints };
+          event.playerNames.forEach((playerName: string) => {
+            updatedPlayerPoints[playerName] = (updatedPlayerPoints[playerName] || 0) + pointsPerCompletion;
+          });
+          updatedTeam.playerPoints = updatedPlayerPoints;
+
+          // Add powerup to inventory
+          updatedTeam.inventory = [...(t.inventory || []), tile.rewardPowerupId];
+
+          return updatedTeam;
+        });
+
+        // Log the event
+        const playerList = event.playerNames.join(", ");
+        const powerupName = powerupLabel(tile.rewardPowerupId);
+        const pointsPerPlayer = tile.pointsPerCompletion || 1;
+        next = addLog(
+          next,
+          `${team.name} gained ${powerupName}\n${playerList} completed "${tile.label}" (+${pointsPerPlayer} pts each)`
+        );
+
         return next;
       }
 

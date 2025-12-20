@@ -7,14 +7,18 @@ interface PowerupTilesBoardProps {
   game: GameState;
   isDark: boolean;
   myTeam: Team | null;
+  isAdmin?: boolean;
   onClaimPowerup: (tileId: number) => void;
+  onEditPowerupTile?: (tileId: number) => void;
 }
 
 export default function PowerupTilesBoard({
   game,
   isDark,
   myTeam,
+  isAdmin = false,
   onClaimPowerup,
+  onEditPowerupTile,
 }: PowerupTilesBoardProps) {
   const powerupTiles = game.powerupTiles || [];
 
@@ -23,13 +27,16 @@ export default function PowerupTilesBoard({
   }
 
   const canClaim = (tile: PowerupTile): { allowed: boolean; reason?: string } => {
-    if (!myTeam) return { allowed: false, reason: "Not logged in" };
+    if (!myTeam && !isAdmin) return { allowed: false, reason: "Not logged in" };
+    
+    // Admin can always claim
+    if (isAdmin) return { allowed: true };
 
     const claimType = tile.claimType || "eachTeam";
     const tileId = Number(tile.id);
 
     if (claimType === "eachTeam") {
-      const alreadyClaimed = (myTeam.claimedPowerupTiles || []).includes(tileId);
+      const alreadyClaimed = (myTeam?.claimedPowerupTiles || []).includes(tileId);
       if (alreadyClaimed) return { allowed: false, reason: "Already claimed" };
     } else if (claimType === "firstTeam") {
       const anyTeamClaimed = game.teams?.some((t) =>
@@ -73,7 +80,7 @@ export default function PowerupTilesBoard({
                 <img
                   src={tile.image}
                   alt={tile.label}
-                  className="w-full h-32 object-cover rounded-lg mb-3"
+                  className="w-full h-20 object-contain rounded-lg mb-3"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}
@@ -138,15 +145,26 @@ export default function PowerupTilesBoard({
               )}
 
               {/* Claim Button */}
-              <Button
-                onClick={() => onClaimPowerup(tile.id)}
-                variant={allowed ? "primary" : "secondary"}
-                isDark={isDark}
-                disabled={!allowed}
-                className="w-full"
-              >
-                {allowed ? "Claim" : reason || "Cannot Claim"}
-              </Button>
+              {isAdmin ? (
+                <Button
+                  onClick={() => onEditPowerupTile && onEditPowerupTile(tile.id)}
+                  variant="secondary"
+                  isDark={isDark}
+                  className="w-full"
+                >
+                  ✏️ Edit Powerup Tile
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => onClaimPowerup(tile.id)}
+                  variant={allowed ? "primary" : "secondary"}
+                  isDark={isDark}
+                  disabled={!allowed}
+                  className="w-full"
+                >
+                  {allowed ? "Claim" : reason || "Cannot Claim"}
+                </Button>
+              )}
             </div>
           );
         })}

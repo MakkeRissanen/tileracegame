@@ -201,4 +201,6 @@ export type GameEvent =
   | { type: "ADMIN_SET_ALL_TEAM_PASSWORDS"; password: string }
   | { type: "ADMIN_UNDO" }
   | { type: "ADMIN_APPLY_DRAFT_TEAMS"; teams: Array<{ name: string; captain: string; members: string[] }>; adminName?: string }
-  | { type: "ADMIN_UPDATE_TEAM"; teamId: string; updates: Partial<Team> };
+  | { type: "ADMIN_UPDATE_TEAM"; teamId: string; updates: Partial<Team> }
+  | { type: "ADMIN_UPDATE_POWERUP_TILE"; tileId: number; updates: Partial<PowerupTile>; teamClaims?: Array<{ teamId: string; claimed: boolean }> }
+  | { type: "ADMIN_UPDATE_POOL_TASK"; taskId: string; updates: Partial<PoolTask> };

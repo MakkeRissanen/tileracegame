@@ -24,6 +24,11 @@ import ChangePasswordModal from "./ChangePasswordModal";
 import SetTeamPasswordsModal from "./SetTeamPasswordsModal";
 import UndoHistoryModal from "./UndoHistoryModal";
 import EditTeamModal from "./EditTeamModal";
+import EditPowerupTileModal from "./EditPowerupTileModal";
+import EditPoolTaskModal from "./EditPoolTaskModal";
+import ClaimPowerupConfirmModal from "./ClaimPowerupConfirmModal";
+import PowerupClaimPlayerPickerModal from "./PowerupClaimPlayerPickerModal";
+import { PoolTask } from "@/types/game";
 
 export default function TileRaceGame() {
   const { game, loading, dispatch } = useGameSync();
@@ -31,8 +36,6 @@ export default function TileRaceGame() {
   const { myTeam, setTeam, logout, isRestoring } = useTeamSession(game.teams || []);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [winningTeam, setWinningTeam] = useState<Team | null>(null);
-  const [showClaimModal, setShowClaimModal] = useState(false);
-  const [selectedPowerupTile, setSelectedPowerupTile] = useState<PowerupTile | null>(null);
   const [showUsePowerupModal, setShowUsePowerupModal] = useState(false);
   const [showAdminOptions, setShowAdminOptions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -47,6 +50,14 @@ export default function TileRaceGame() {
   const [showSetTeamPasswordsModal, setShowSetTeamPasswordsModal] = useState(false);
   const [showUndoHistoryModal, setShowUndoHistoryModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [editingPowerupTile, setEditingPowerupTile] = useState<PowerupTile | null>(null);
+  const [editingPoolTask, setEditingPoolTask] = useState<PoolTask | null>(null);
+  
+  // Claim powerup modal states
+  const [claimTeamId, setClaimTeamId] = useState<string | null>(null);
+  const [claimSelectedPowerupTileId, setClaimSelectedPowerupTileId] = useState<number | null>(null);
+  const [claimConfirmOpen, setClaimConfirmOpen] = useState(false);
+  const [powerupClaimPickerOpen, setPowerupClaimPickerOpen] = useState(false);
 
   const handlers = useGameHandlers({
     dispatch,
@@ -79,25 +90,10 @@ export default function TileRaceGame() {
     }
   }, [game.fogOfWarDisabled, game.log]);
 
-  const handleClaimPowerup = (tileId: number) => {
-    const tile = game.powerupTiles?.find((pt) => pt.id === tileId);
-    if (tile && myTeam) {
-      setSelectedPowerupTile(tile);
-      setShowClaimModal(true);
-    }
-  };
-
-  const handleClaimPowerupSubmit = async (tileId: number, playerNames: string[]) => {
-    if (!myTeam) return;
-    try {
-      await dispatch({
-        type: "CLAIM_POWERUP_TILE",
-        teamId: myTeam.id,
-        powerTileId: tileId,
-        playerNames,
-      });
-    } catch (err) {
-      alert(`Failed to claim powerup: ${err instanceof Error ? err.message : "Unknown error"}`);
+  // Wrapper for PowerupTilesBoard - it expects a (tileId: number) => void but we'll just open the modal for myTeam
+  const handleClaimPowerupFromBoard = (tileId: number) => {
+    if (myTeam) {
+      handleOpenClaimPowerup(myTeam.id);
     }
   };
 
@@ -118,8 +114,7 @@ export default function TileRaceGame() {
   const handleAdminUsePowerup = (teamId: string) => {
     const team = game.teams.find((t) => t.id === teamId);
     if (team) {
-      // Set the team temporarily to open the powerup modal
-      setSelectedPowerupTile(null);
+      // Open the use powerup modal
       setShowUsePowerupModal(true);
       // Store the team ID for admin use
       (window as any).__adminTeamId = teamId;
@@ -146,6 +141,99 @@ export default function TileRaceGame() {
     }
   };
 
+  const handleEditPowerupTile = (tileId: number) => {
+    const tile = game.powerupTiles?.find((t) => t.id === tileId);
+    if (tile) {
+      setEditingPowerupTile(tile);
+    }
+  };
+
+  const handleUpdatePowerupTile = async (tileId: number, updates: Partial<PowerupTile>, teamClaims?: { teamId: string; claimed: boolean }[]) => {
+    try {
+      await dispatch({
+        type: "ADMIN_UPDATE_POWERUP_TILE",
+        tileId,
+        updates,
+        teamClaims,
+      });
+      setEditingPowerupTile(null);
+    } catch (err) {
+      alert(`Failed to update powerup tile: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
+  const handleEditPoolTask = (taskId: string) => {
+    // Find task in any of the task pools
+    let foundTask: PoolTask | undefined;
+    for (const difficulty of [1, 2, 3]) {
+      const tasks = game.taskPools?.[difficulty] || [];
+      foundTask = tasks.find((t) => t.id === taskId);
+      if (foundTask) break;
+    }
+    if (foundTask) {
+      setEditingPoolTask(foundTask);
+    }
+  };
+
+  const handleUpdatePoolTask = async (taskId: string, updates: Partial<PoolTask>) => {
+    try {
+      await dispatch({
+        type: "ADMIN_UPDATE_POOL_TASK",
+        taskId,
+        updates,
+      });
+      setEditingPoolTask(null);
+    } catch (err) {
+      alert(`Failed to update pool task: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
+  // Claim powerup handlers
+  const handleOpenClaimPowerup = (teamId: string) => {
+    setClaimTeamId(teamId);
+    setClaimSelectedPowerupTileId(null);
+    setClaimConfirmOpen(false);
+    setPowerupClaimPickerOpen(false);
+  };
+
+  const handleSelectPowerupTile = (tileId: number) => {
+    setClaimSelectedPowerupTileId(tileId);
+    setClaimConfirmOpen(true);
+  };
+
+  const handleConfirmPowerupClaim = () => {
+    setClaimConfirmOpen(false);
+    setPowerupClaimPickerOpen(true);
+  };
+
+  const handleClaimPowerupWithPlayers = async (playerNames: string[]) => {
+    if (!claimTeamId || claimSelectedPowerupTileId === null) return;
+
+    try {
+      await dispatch({
+        type: "CLAIM_POWERUP_TILE",
+        teamId: claimTeamId,
+        powerTileId: claimSelectedPowerupTileId,
+        playerNames,
+      });
+      
+      // Close all modals
+      setClaimTeamId(null);
+      setClaimSelectedPowerupTileId(null);
+      setClaimConfirmOpen(false);
+      setPowerupClaimPickerOpen(false);
+    } catch (err) {
+      alert(`Failed to claim powerup: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
+  const handleCloseClaimModals = () => {
+    setClaimTeamId(null);
+    setClaimSelectedPowerupTileId(null);
+    setClaimConfirmOpen(false);
+    setPowerupClaimPickerOpen(false);
+  };
+
   if (loading || isRestoring) {
     return (
       <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-8`}>
@@ -159,8 +247,8 @@ export default function TileRaceGame() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-4 md:p-6`}>
-      <div className="max-w-[1600px] mx-auto">
+    <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-2`}>
+      <div className="max-w-full mx-auto">
         <GameHeader
           isDark={isDark}
           myTeam={myTeam}
@@ -213,9 +301,12 @@ export default function TileRaceGame() {
             isAdmin={isAdmin}
             onCompleteTile={handlers.handleCompleteTile}
             onUsePowerup={() => setShowUsePowerupModal(true)}
-            onClaimPowerup={handleClaimPowerup}
+            onClaimPowerup={handleClaimPowerupFromBoard}
+            onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
+            onEditPowerupTile={handleEditPowerupTile}
+            onEditPoolTask={handleEditPoolTask}
             onClearPools={async () => {
               if (!confirm("Clear all task pools?")) return;
               await dispatch({ type: "ADMIN_CLEAR_TASK_POOLS" });
@@ -229,29 +320,16 @@ export default function TileRaceGame() {
             isAdmin={isAdmin}
             onCompleteTile={handlers.handleCompleteTile}
             onUsePowerup={() => setShowUsePowerupModal(true)}
-            onClaimPowerup={handleClaimPowerup}
+            onClaimPowerup={handleClaimPowerupFromBoard}
+            onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
+            onEditPowerupTile={handleEditPowerupTile}
+            onEditPoolTask={handleEditPoolTask}
             onClearPools={async () => {
               if (!confirm("Clear all task pools?")) return;
               await dispatch({ type: "ADMIN_CLEAR_TASK_POOLS" });
             }}
-          />
-        )}
-
-        {/* Claim Powerup Modal */}
-        {myTeam && selectedPowerupTile && (
-          <ClaimPowerupModal
-            isOpen={showClaimModal}
-            onClose={() => {
-              setShowClaimModal(false);
-              setSelectedPowerupTile(null);
-            }}
-            tile={selectedPowerupTile}
-            team={myTeam}
-            game={game}
-            isDark={isDark}
-            onClaim={handleClaimPowerupSubmit}
           />
         )}
 
@@ -391,6 +469,60 @@ export default function TileRaceGame() {
             team={editingTeam}
             onClose={() => setEditingTeam(null)}
             onUpdateTeam={handleUpdateTeam}
+          />
+        )}
+
+        {/* Edit Powerup Tile Modal */}
+        {editingPowerupTile && (
+          <EditPowerupTileModal
+            isOpen={true}
+            isDark={isDark}
+            tile={editingPowerupTile}
+            game={game}
+            onClose={() => setEditingPowerupTile(null)}
+            onUpdate={handleUpdatePowerupTile}
+          />
+        )}
+
+        {/* Edit Pool Task Modal */}
+        {editingPoolTask && (
+          <EditPoolTaskModal
+            isOpen={true}
+            isDark={isDark}
+            task={editingPoolTask}
+            onClose={() => setEditingPoolTask(null)}
+            onUpdate={handleUpdatePoolTask}
+          />
+        )}
+
+        {/* Claim Powerup Modals */}
+        {claimTeamId && !claimConfirmOpen && !powerupClaimPickerOpen && (
+          <ClaimPowerupModal
+            isOpen={true}
+            team={game.teams.find((t) => t.id === claimTeamId)!}
+            game={game}
+            onClose={handleCloseClaimModals}
+            onSelectTile={handleSelectPowerupTile}
+          />
+        )}
+
+        {claimTeamId && claimSelectedPowerupTileId !== null && claimConfirmOpen && (
+          <ClaimPowerupConfirmModal
+            isOpen={true}
+            tile={game.powerupTiles?.find((pt) => pt.id === claimSelectedPowerupTileId) || null}
+            team={game.teams.find((t) => t.id === claimTeamId)!}
+            onClose={handleCloseClaimModals}
+            onConfirm={handleConfirmPowerupClaim}
+          />
+        )}
+
+        {claimTeamId && claimSelectedPowerupTileId !== null && powerupClaimPickerOpen && (
+          <PowerupClaimPlayerPickerModal
+            isOpen={true}
+            tile={game.powerupTiles?.find((pt) => pt.id === claimSelectedPowerupTileId) || null}
+            team={game.teams.find((t) => t.id === claimTeamId)!}
+            onClose={handleCloseClaimModals}
+            onConfirm={handleClaimPowerupWithPlayers}
           />
         )}
       </div>

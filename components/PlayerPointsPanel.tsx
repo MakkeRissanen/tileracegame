@@ -24,8 +24,8 @@ export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelPro
   };
 
   return (
-    <Card isDark={isDark} className="p-4">
-      <h2 className={`text-lg font-bold mb-4 ${isDark ? "text-white" : "text-slate-900"}`}>
+    <div className="max-w-[220px]">
+      <h2 className={`text-lg font-bold mb-4 text-center ${isDark ? "text-white" : "text-slate-900"}`}>
         Player Points
       </h2>
 
@@ -43,11 +43,7 @@ export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelPro
               <div
                 key={playerName}
                 className={`flex items-center justify-between p-2 rounded ${
-                  idx < 3
-                    ? isDark
-                      ? "bg-yellow-900/20"
-                      : "bg-yellow-50"
-                    : isDark
+                  isDark
                     ? "bg-slate-700/30"
                     : "bg-slate-50"
                 }`}
@@ -55,33 +51,27 @@ export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelPro
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     {medal && <span className="text-lg">{medal}</span>}
-                    <span
-                      className={`font-medium ${
-                        idx < 3
-                          ? isDark
-                            ? "text-yellow-200"
-                            : "text-yellow-900"
-                          : isDark
-                          ? "text-slate-200"
-                          : "text-slate-900"
-                      }`}
-                    >
-                      {playerName}
-                    </span>
-                  </div>
-                  {teams.length > 0 && (
-                    <div className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                      {teams.join(", ")}
+                    <div>
+                      <div
+                        className={`font-medium ${
+                          isDark
+                            ? "text-slate-200"
+                            : "text-slate-900"
+                        }`}
+                      >
+                        {playerName}
+                      </div>
+                      {teams.length > 0 && (
+                        <div className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                          {teams.join(", ")}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
                 <div
                   className={`font-bold text-lg ${
-                    idx < 3
-                      ? isDark
-                        ? "text-yellow-300"
-                        : "text-yellow-600"
-                      : isDark
+                    isDark
                       ? "text-slate-300"
                       : "text-slate-700"
                   }`}
@@ -93,6 +83,6 @@ export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelPro
           })}
         </div>
       )}
-    </Card>
+    </div>
   );
 }

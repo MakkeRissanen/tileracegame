@@ -13,6 +13,7 @@ interface TeamsSidebarProps {
   onCompleteTile: (teamId: string, playerNames: string[]) => void;
   onUsePowerup: () => void;
   onClaimPowerup?: (tileId: number) => void;
+  onOpenClaimPowerup?: (teamId: string) => void;
   onAdminUsePowerup?: (teamId: string) => void;
   onEditTeam?: (teamId: string) => void;
 }
@@ -25,6 +26,7 @@ export default function TeamsSidebar({
   onCompleteTile,
   onUsePowerup,
   onClaimPowerup,
+  onOpenClaimPowerup,
   onAdminUsePowerup,
   onEditTeam,
 }: TeamsSidebarProps) {
@@ -95,11 +97,7 @@ export default function TeamsSidebar({
 
   return (
     <>
-      <div className="space-y-4">
-      <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-        Teams
-      </h2>
-      
+      <div className="space-y-4 max-w-[280px]">
       {game.teams?.map((team) => {
         const progress = getProgress(team);
         const isMyTeam = myTeam?.id === team.id;
@@ -110,12 +108,24 @@ export default function TeamsSidebar({
             key={team.id}
             className={`
               ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}
-              border rounded-2xl shadow-sm p-4
+              border rounded-2xl shadow-sm p-3
               ${isMyTeam ? "ring-2 ring-blue-500" : ""}
             `}
           >
+            {/* Admin Edit Team Button at Top */}
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                isDark={isDark}
+                className="w-full text-xs py-1.5 mb-2"
+                onClick={() => onEditTeam && onEditTeam(team.id)}
+              >
+                ✏️ Edit Team
+              </Button>
+            )}
+
             {/* Team Header */}
-            <div className="flex items-start justify-between mb-2">
+            <div className="flex items-start justify-between mb-1.5">
               <div className="flex-1">
                 <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>
                   {team.name}
@@ -130,13 +140,13 @@ export default function TeamsSidebar({
             </div>
 
             {/* Current Tile */}
-            <p className={`text-sm mb-3 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+            <p className={`text-sm mb-2 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               {currentTile}
             </p>
 
             {/* Team Members */}
             {team.members && team.members.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-3">
+              <div className="flex flex-wrap gap-1 mb-2">
                 {team.members.map((member, idx) => (
                   <span
                     key={idx}
@@ -152,7 +162,7 @@ export default function TeamsSidebar({
             )}
 
             {/* Progress Bar */}
-            <div className="mb-2">
+            <div className="mb-1.5">
               <div className="flex justify-between text-xs mb-1">
                 <span className={isDark ? "text-slate-400" : "text-slate-600"}>
                   Progress
@@ -171,7 +181,7 @@ export default function TeamsSidebar({
 
             {/* Powerup Count */}
             {team.inventory && team.inventory.length > 0 && (
-              <p className={`text-xs mb-3 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              <p className={`text-xs mb-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                 🎁 {team.inventory.length} powerup{team.inventory.length > 1 ? "s" : ""}
               </p>
             )}
@@ -182,33 +192,32 @@ export default function TeamsSidebar({
                 <div className={`text-xs font-semibold mb-2 ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
                   👑 Admin Controls
                 </div>
+                <Button
+                  variant="secondary"
+                  isDark={isDark}
+                  className="w-full text-xs py-2.5"
+                  onClick={() => handleOpenPlayerModal(team.id)}
+                >
+                  ✅ Complete Tile
+                </Button>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="secondary"
                     isDark={isDark}
                     className="text-xs py-1.5"
-                    onClick={() => handleOpenPlayerModal(team.id)}
+                    onClick={() => onOpenClaimPowerup && onOpenClaimPowerup(team.id)}
                   >
-                    ✅ Complete
+                    Claim Powerup
                   </Button>
                   <Button
                     variant="secondary"
                     isDark={isDark}
                     className="text-xs py-1.5"
-                    onClick={() => onEditTeam && onEditTeam(team.id)}
+                    onClick={() => onAdminUsePowerup && onAdminUsePowerup(team.id)}
+                    disabled={!team.inventory || team.inventory.length === 0}
                   >
-                    ✏️ Edit Team
+                    Use Powerup
                   </Button>
-                  {team.inventory && team.inventory.length > 0 && (
-                    <Button
-                      variant="secondary"
-                      isDark={isDark}
-                      className="text-xs py-1.5"
-                      onClick={() => onAdminUsePowerup && onAdminUsePowerup(team.id)}
-                    >
-                      🎁 Use Powerup
-                    </Button>
-                  )}
                 </div>
               </div>
             )}
@@ -219,24 +228,32 @@ export default function TeamsSidebar({
                 <Button
                   variant="primary"
                   isDark={isDark}
-                  className="w-full"
+                  className="w-full py-2.5"
                   onClick={() => handleOpenPlayerModal(team.id)}
                 >
                   Complete Tile
                 </Button>
                 
+                {/* Claim Powerup Button */}
+                <Button
+                  variant="secondary"
+                  isDark={isDark}
+                  className="w-full text-sm"
+                  onClick={() => onOpenClaimPowerup && onOpenClaimPowerup(team.id)}
+                >
+                  🎁 Claim Powerup
+                </Button>
+                
                 {/* Use Powerup Button */}
-                {team.inventory && team.inventory.length > 0 && (
-                  <Button
-                    variant="secondary"
-                    isDark={isDark}
-                    className="w-full"
-                    onClick={onUsePowerup}
-                    disabled={team.powerupCooldown}
-                  >
-                    {team.powerupCooldown ? "🔒 Powerup Cooldown" : "🎁 Use Powerup"}
-                  </Button>
-                )}
+                <Button
+                  variant="secondary"
+                  isDark={isDark}
+                  className="w-full"
+                  onClick={onUsePowerup}
+                  disabled={team.powerupCooldown || !team.inventory || team.inventory.length === 0}
+                >
+                  {team.powerupCooldown ? "🔒 Powerup Cooldown" : "🎁 Use Powerup"}
+                </Button>
               </div>
             )}
           </div>

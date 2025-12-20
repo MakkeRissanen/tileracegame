@@ -17,9 +17,12 @@ interface MainGameLayoutProps {
   onCompleteTile: (teamId: string, playerNames: string[]) => void;
   onUsePowerup: () => void;
   onClaimPowerup: (tileId: number) => void;
+  onOpenClaimPowerup: (teamId: string) => void;
   onClearPools: () => void;
   onAdminUsePowerup?: (teamId: string) => void;
   onEditTeam?: (teamId: string) => void;
+  onEditPowerupTile?: (tileId: number) => void;
+  onEditPoolTask?: (taskId: string) => void;
 }
 
 export default function MainGameLayout({
@@ -30,13 +33,16 @@ export default function MainGameLayout({
   onCompleteTile,
   onUsePowerup,
   onClaimPowerup,
+  onOpenClaimPowerup,
   onClearPools,
   onAdminUsePowerup,
   onEditTeam,
+  onEditPowerupTile,
+  onEditPoolTask,
 }: MainGameLayoutProps) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3">
         {/* Left Sidebar - Teams */}
         <div>
           <TeamsSidebar
@@ -47,6 +53,7 @@ export default function MainGameLayout({
             onCompleteTile={onCompleteTile}
             onUsePowerup={onUsePowerup}
             onClaimPowerup={onClaimPowerup}
+            onOpenClaimPowerup={onOpenClaimPowerup}
             onAdminUsePowerup={onAdminUsePowerup}
             onEditTeam={onEditTeam}
           />
@@ -55,7 +62,7 @@ export default function MainGameLayout({
         {/* Right Side - Race Board with Player Points & Event Log beside it */}
         <div className="space-y-6">
           {/* Race Board with Player Points and Event Log */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px_340px] gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_260px] gap-4">
             <RaceBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} />
             <PlayerPointsPanel game={game} isDark={isDark} />
             <EventLog game={game} isDark={isDark} />
@@ -71,7 +78,9 @@ export default function MainGameLayout({
         game={game}
         isDark={isDark}
         myTeam={myTeam}
+        isAdmin={isAdmin}
         onClaimPowerup={onClaimPowerup}
+        onEditPowerupTile={onEditPowerupTile}
       />
 
       {/* Task Pools (Admin Only) */}
@@ -80,6 +89,7 @@ export default function MainGameLayout({
           game={game}
           isDark={isDark}
           onClearPools={onClearPools}
+          onEditTask={onEditPoolTask}
         />
       )}
     </div>

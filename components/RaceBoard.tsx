@@ -103,7 +103,7 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
         onClick={() => handleTileClick(tile)}
         className={`
           ${final ? "col-span-4" : "col-span-1"}
-          ${final ? "h-40" : "h-32"}
+          ${final ? "h-48" : "h-36"}
           ${revealed ? difficultyColors[tile.difficulty as 1 | 2 | 3] : isDark ? "bg-slate-800" : "bg-slate-700"}
           border-2 ${revealed ? difficultyBorderColors[tile.difficulty as 1 | 2 | 3] : isDark ? "border-slate-700" : "border-slate-600"}
           rounded-xl shadow-lg
@@ -137,10 +137,10 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
                 <img
                   src={tile.image}
                   alt=""
-                  className="w-12 h-12 object-contain mb-1"
+                  className="w-20 h-20 object-contain mb-2"
                 />
               )}
-              <p className={`text-center text-sm font-semibold line-clamp-2 text-white`}>
+              <p className={`text-center text-sm font-semibold line-clamp-2 text-white mt-1`}>
                 {tile.label}
               </p>
             </>
@@ -185,7 +185,7 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
 
   return (
     <>
-      <div className={`space-y-3 max-w-5xl ${isDark ? "text-white" : "text-slate-900"}`}>
+      <div className={`space-y-3 w-full ${isDark ? "text-white" : "text-slate-900"}`}>
         {serpentineRows.map((row, rowIndex) => {
           const rowType = rowIndex % 4;
           const tilesToRender = row.isReversed ? [...row.tiles].reverse() : row.tiles;

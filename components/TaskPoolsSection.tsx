@@ -7,9 +7,10 @@ interface TaskPoolsSectionProps {
   game: GameState;
   isDark: boolean;
   onClearPools: () => void;
+  onEditTask?: (taskId: string) => void;
 }
 
-export default function TaskPoolsSection({ game, isDark }: TaskPoolsSectionProps) {
+export default function TaskPoolsSection({ game, isDark, onClearPools, onEditTask }: TaskPoolsSectionProps) {
   const usedPoolTaskIds = new Set(game.usedPoolTaskIds || []);
 
   return (
@@ -78,16 +79,26 @@ export default function TaskPoolsSection({ game, isDark }: TaskPoolsSectionProps
                                 />
                               )}
                             </div>
-                            {used && (
-                              <span
-                                className={`
-                                  flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold
-                                  ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-700"}
-                                `}
+                            <div className="flex flex-col gap-1 flex-shrink-0">
+                              <Button
+                                variant="secondary"
+                                isDark={isDark}
+                                className="text-[10px] px-2 py-0.5"
+                                onClick={() => onEditTask && onEditTask(task.id)}
                               >
-                                USED
-                              </span>
-                            )}
+                                ✏️ Edit
+                              </Button>
+                              {used && (
+                                <span
+                                  className={`
+                                    rounded-full px-2 py-0.5 text-[10px] font-semibold text-center
+                                    ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-700"}
+                                  `}
+                                >
+                                  USED
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </li>
                       );

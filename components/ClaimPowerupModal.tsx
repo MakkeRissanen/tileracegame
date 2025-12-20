@@ -1,175 +1,172 @@
-"use client";
-
 import { useState } from "react";
 import { GameState, PowerupTile, Team } from "@/types/game";
-import { Button, Modal, inputClass } from "./ui";
+import { Modal } from "@/components/ui";
+import PowerupTileDetailModal from "./PowerupTileDetailModal";
 
 interface ClaimPowerupModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  tile: PowerupTile | null;
   team: Team;
   game: GameState;
-  isDark: boolean;
-  onClaim: (tileId: number, playerNames: string[]) => void;
+  onClose: () => void;
+  onSelectTile: (tileId: number) => void;
 }
 
 export default function ClaimPowerupModal({
   isOpen,
-  onClose,
-  tile,
   team,
   game,
-  isDark,
-  onClaim,
+  onClose,
+  onSelectTile,
 }: ClaimPowerupModalProps) {
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
-  const [newPlayerName, setNewPlayerName] = useState("");
+  const [detailTile, setDetailTile] = useState<PowerupTile | null>(null);
 
-  if (!tile) return null;
+  // Get powerup label by ID
+  const getPowerupLabel = (powerupId: string): string => {
+    const powerups = {
+      "skip-1": "Skip 1 tile",
+      "skip-2": "Skip 2 tiles",
+      "skip-3": "Skip 3 tiles",
+      "double-points": "Double Points",
+      "block-team": "Block Team",
+      "steal-powerup": "Steal Powerup",
+      "reveal-tile": "Reveal Tile",
+    };
+    return powerups[powerupId as keyof typeof powerups] || powerupId;
+  };
 
-  const minRequired = tile.minCompletions || 1;
-  const maxAllowed = tile.maxCompletions || 1;
+  // Determine claimable tiles for this team
+  const getClaimableTiles = (team: Team): (PowerupTile & { claimed: boolean; claimedByTeam: string | null; disabled: boolean })[] => {
+    return (game.powerupTiles || []).map((tile) => {
+      const claimed = (team.claimedPowerupTiles || []).includes(tile.id);
+      let claimedByTeam = null;
+      let disabled = false;
 
-  const handleAddPlayer = () => {
-    const trimmed = newPlayerName.trim();
-    if (trimmed && !selectedPlayers.includes(trimmed)) {
-      if (selectedPlayers.length < maxAllowed) {
-        setSelectedPlayers([...selectedPlayers, trimmed]);
-        setNewPlayerName("");
+      if (tile.claimType === "firstTeam") {
+        // Check if any team has claimed this
+        const claimingTeam = game.teams.find((t) =>
+          (t.claimedPowerupTiles || []).includes(tile.id)
+        );
+        if (claimingTeam) {
+          claimedByTeam = claimingTeam.name;
+          disabled = claimingTeam.id !== team.id;
+        }
+      } else if (tile.claimType === "eachTeam") {
+        disabled = claimed;
       }
-    }
+      // unlimited = never disabled
+
+      // Also disable if no reward
+      if (!tile.rewardPowerupId) {
+        disabled = true;
+      }
+
+      return { ...tile, claimed, claimedByTeam, disabled };
+    });
   };
 
-  const handleRemovePlayer = (index: number) => {
-    setSelectedPlayers(selectedPlayers.filter((_, i) => i !== index));
-  };
-
-  const handleClaim = () => {
-    if (selectedPlayers.length >= minRequired && selectedPlayers.length <= maxAllowed) {
-      onClaim(tile.id, selectedPlayers);
-      setSelectedPlayers([]);
-      setNewPlayerName("");
-      onClose();
-    }
-  };
-
-  const canClaim = selectedPlayers.length >= minRequired && selectedPlayers.length <= maxAllowed;
+  const claimableTiles = getClaimableTiles(team);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isDark={isDark}>
-      <div className="space-y-4">
-        <div>
-          <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-            Claim Powerup Task
-          </h2>
-          <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-            {team.name}
-          </p>
-        </div>
-
-        {/* Tile Info */}
-        <div
-          className={`rounded-xl border p-4 ${
-            isDark ? "border-slate-700 bg-slate-800/50" : "border-slate-200 bg-slate-50"
-          }`}
-        >
-          {tile.image && (
-            <img
-              src={tile.image}
-              alt={tile.label}
-              className="w-full h-32 object-cover rounded-lg mb-3"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-          )}
-          <h3 className={`font-semibold text-lg mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-            {tile.label}
-          </h3>
-          {tile.instructions && (
-            <p className={`text-sm mb-3 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-              {tile.instructions}
-            </p>
-          )}
-          <div className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-            <div>
-              <span className="font-semibold">Reward:</span> {tile.rewardPowerupId}
-            </div>
-            <div>
-              <span className="font-semibold">Points per player:</span> {tile.pointsPerCompletion}
-            </div>
-            <div>
-              <span className="font-semibold">Required players:</span> {minRequired}-{maxAllowed}
-            </div>
-          </div>
-        </div>
-
-        {/* Player Selection */}
-        <div>
-          <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-            Select Players ({selectedPlayers.length}/{minRequired}-{maxAllowed})
-          </label>
-
-          <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              value={newPlayerName}
-              onChange={(e) => setNewPlayerName(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleAddPlayer()}
-              placeholder="Enter player name"
-              className={inputClass(isDark)}
-            />
-            <Button
-              onClick={handleAddPlayer}
-              variant="secondary"
-              isDark={isDark}
-              disabled={selectedPlayers.length >= maxAllowed}
-            >
-              Add
-            </Button>
-          </div>
-
-          {selectedPlayers.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedPlayers.map((name, idx) => (
-                <div
-                  key={idx}
-                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${
-                    isDark
-                      ? "bg-slate-700 text-slate-100"
-                      : "bg-slate-100 text-slate-900"
-                  }`}
-                >
-                  {name}
+    <Modal isOpen={isOpen} onClose={onClose} isDark={true} maxWidth="max-w-3xl" title="Claim powerup">
+      <div className="overflow-auto rounded-xl border border-slate-300 dark:border-slate-700">
+        <table className="w-full text-left text-sm text-slate-900 dark:text-slate-200">
+          <thead className="text-xs bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
+            <tr>
+              <th className="p-3">Image</th>
+              <th className="p-3">Task</th>
+              <th className="p-3">Reward</th>
+              <th className="p-3">Claim Type</th>
+              <th className="p-3">Status</th>
+              <th className="p-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {claimableTiles.map((tile) => (
+              <tr
+                key={tile.id}
+                className="border-t border-slate-300 dark:border-slate-700"
+              >
+                <td className="p-3">
+                  {tile.image ? (
+                    <img
+                      src={tile.image}
+                      alt={tile.label}
+                      className="h-12 w-12 rounded-md object-contain"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-md flex items-center justify-center bg-slate-200 dark:bg-slate-700">
+                      <span className="text-xs text-slate-500">-</span>
+                    </div>
+                  )}
+                </td>
+                <td className="p-3">
                   <button
-                    onClick={() => handleRemovePlayer(idx)}
-                    className="hover:text-red-500 font-bold"
+                    onClick={() => setDetailTile(tile)}
+                    className="font-medium text-left hover:underline text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                   >
-                    ×
+                    {tile.label}
                   </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4">
-          <Button onClick={onClose} variant="secondary" isDark={isDark} className="flex-1">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleClaim}
-            variant="primary"
-            isDark={isDark}
-            disabled={!canClaim}
-            className="flex-1"
-          >
-            Claim Powerup ({selectedPlayers.length}/{minRequired}-{maxAllowed})
-          </Button>
-        </div>
+                </td>
+                <td className="p-3 text-slate-700 dark:text-slate-300">
+                  {tile.rewardPowerupId ? (
+                    getPowerupLabel(tile.rewardPowerupId)
+                  ) : (
+                    <span className="text-slate-400 dark:text-slate-500">
+                      No reward
+                    </span>
+                  )}
+                </td>
+                <td className="p-3 text-xs text-slate-600 dark:text-slate-400">
+                  {tile.claimType === "eachTeam"
+                    ? "Each Team"
+                    : tile.claimType === "firstTeam"
+                    ? "First Team"
+                    : "Unlimited"}
+                </td>
+                <td className="p-3">
+                  {tile.claimed ? (
+                    <span className="rounded-full px-2 py-1 text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                      Claimed
+                    </span>
+                  ) : tile.claimedByTeam ? (
+                    <span className="rounded-full px-2 py-1 text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      {tile.claimedByTeam}
+                    </span>
+                  ) : tile.disabled && tile.rewardPowerupId ? (
+                    <span className="rounded-full px-2 py-1 text-xs bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200">
+                      Unavailable
+                    </span>
+                  ) : tile.rewardPowerupId ? (
+                    <span className="rounded-full px-2 py-1 text-xs bg-emerald-50 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                      Available
+                    </span>
+                  ) : (
+                    <span className="rounded-full px-2 py-1 text-xs bg-amber-50 dark:bg-amber-900 text-amber-900 dark:text-amber-200">
+                      Needs reward
+                    </span>
+                  )}
+                </td>
+                <td className="p-3 text-right">
+                  <button
+                    disabled={tile.disabled}
+                    onClick={() => onSelectTile(tile.id)}
+                    className="rounded-xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-40 bg-slate-800 dark:bg-slate-900 hover:bg-slate-700 dark:hover:bg-slate-800 disabled:cursor-not-allowed"
+                  >
+                    Select
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      {/* Detail Modal */}
+      <PowerupTileDetailModal
+        isOpen={detailTile !== null}
+        tile={detailTile}
+        onClose={() => setDetailTile(null)}
+      />
     </Modal>
   );
 }

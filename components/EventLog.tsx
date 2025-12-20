@@ -80,7 +80,14 @@ export default function EventLog({ game, isDark }: EventLogProps) {
 
     // Fast path: no teams yet, or admin action - just render text
     if (!teamNames.length || isAdminAction) {
-      return <div className={`rounded-lg p-2 text-xs leading-relaxed ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>{message}</div>;
+      const lines = message.split('\n');
+      return (
+        <div className={`rounded-lg p-2 text-xs leading-relaxed ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+          {lines.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      );
     }
 
     // Identify primary team color from first team mentioned
@@ -122,6 +129,46 @@ export default function EventLog({ game, isDark }: EventLogProps) {
       parts.push(message.substring(lastIdx));
     }
 
+    // Check if message contains newlines, split and render on separate lines
+    const messageHasNewlines = message.includes('\n');
+    if (messageHasNewlines) {
+      const lines = message.split('\n');
+      return (
+        <div className={`rounded-lg p-2 text-xs leading-relaxed break-words space-y-0.5 ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+          {lines.map((line, i) => {
+            // Colorize team names in each line
+            const lineParts: React.ReactNode[] = [];
+            let lineLastIdx = 0;
+            const lineRegex = new RegExp(`(${teamNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "g");
+            let lineMatch;
+            
+            while ((lineMatch = lineRegex.exec(line)) !== null) {
+              if (lineMatch.index > lineLastIdx) {
+                lineParts.push(line.substring(lineLastIdx, lineMatch.index));
+              }
+              const tName = lineMatch[0];
+              const team = teams.find((t) => t.name === tName);
+              if (team) {
+                lineParts.push(
+                  <span key={`badge-${i}-${lineMatch.index}`} className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${team.color} ${isDark ? 'text-slate-900' : 'text-slate-900'}`}>
+                    🏴{tName}
+                  </span>
+                );
+              } else {
+                lineParts.push(tName);
+              }
+              lineLastIdx = lineMatch.index + lineMatch[0].length;
+            }
+            if (lineLastIdx < line.length) {
+              lineParts.push(line.substring(lineLastIdx));
+            }
+            
+            return <div key={i}>{lineParts}</div>;
+          })}
+        </div>
+      );
+    }
+
     return (
       <div className={`rounded-lg p-2 text-xs leading-relaxed break-words ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
         {parts}
@@ -130,19 +177,19 @@ export default function EventLog({ game, isDark }: EventLogProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+    <div className="max-w-[260px] w-full">
+      <h2 className={`text-2xl font-bold text-center mb-4 ${isDark ? "text-white" : "text-slate-900"}`}>
         Event Log
       </h2>
       
       <div
         className={`
           ${isDark ? "bg-slate-900 border-slate-900" : "bg-slate-50 border-slate-200"}
-          border rounded-xl p-3
+          border rounded-xl pr-[6px]
           max-h-[720px] overflow-y-auto dark-scrollbar
         `}
       >
-        <div className="space-y-2">
+        <div className="space-y-2 pr-[3px]">
           {game.log && game.log.length > 0 ? (
             game.log.map((entry) => (
               <div key={entry.id}>
