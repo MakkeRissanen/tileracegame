@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GameState, Team, RaceTile } from "@/types/game";
 import { Modal, Button } from "./ui";
+import { diffTint } from "@/lib/gameUtils";
 
 interface RaceBoardProps {
   game: GameState;
@@ -220,37 +221,36 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
               Tile #{selectedTile.n}
             </h2>
 
-            {selectedTile.image && (
-              <img
-                src={selectedTile.image}
-                alt={selectedTile.label}
-                className="w-full max-w-md mx-auto rounded-lg"
-              />
-            )}
-
-            <div>
-              <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                {selectedTile.label}
-              </h3>
-              <p className={isDark ? "text-slate-300" : "text-slate-600"}>
-                {selectedTile.instructions || "No additional instructions."}
-              </p>
+            {/* Tile Preview with Image and Instructions in Colored Box */}
+            <div className={`rounded-xl border-2 p-4 ${diffTint(selectedTile.difficulty, isDark)}`}>
+              <div className="flex flex-col items-center">
+                {selectedTile.image && (
+                  <img
+                    src={selectedTile.image}
+                    alt={selectedTile.label}
+                    className="w-32 h-32 object-contain mb-3"
+                  />
+                )}
+                <p className="text-center text-lg font-semibold mb-2">
+                  {selectedTile.label}
+                </p>
+                {selectedTile.instructions && (
+                  <p className={`text-center text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    {selectedTile.instructions}
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${
-                difficultyColors[selectedTile.difficulty as 1 | 2 | 3]
-              }`}>
-                {difficultyLabels[selectedTile.difficulty as 1 | 2 | 3]}
-              </span>
-              {selectedTile.rewardPowerupId && (
+            {selectedTile.rewardPowerupId && (
+              <div className="flex items-center gap-4">
                 <span className={`px-3 py-1 rounded-lg text-sm font-bold ${
                   isDark ? "bg-yellow-900/60 text-yellow-100" : "bg-yellow-200 text-yellow-900"
                 }`}>
                   ⚡ Reward: {selectedTile.rewardPowerupId}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
               <p>Min completions: {selectedTile.minCompletions}</p>

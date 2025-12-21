@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GameState, PowerupTile, Team } from "@/types/game";
+import { GameState, PowerupTile, Team, POWERUP_DEFS } from "@/types/game";
 import { Modal } from "@/components/ui";
 import PowerupTileDetailModal from "./PowerupTileDetailModal";
 
@@ -19,6 +19,7 @@ export default function ClaimPowerupModal({
   onSelectTile,
 }: ClaimPowerupModalProps) {
   const [detailTile, setDetailTile] = useState<PowerupTile | null>(null);
+  const [showPowerupDescription, setShowPowerupDescription] = useState<string | null>(null);
 
   // Get powerup label by ID
   const getPowerupLabel = (powerupId: string): string => {
@@ -109,7 +110,12 @@ export default function ClaimPowerupModal({
                 </td>
                 <td className="p-3 text-slate-700 dark:text-slate-300">
                   {tile.rewardPowerupId ? (
-                    getPowerupLabel(tile.rewardPowerupId)
+                    <button
+                      onClick={() => setShowPowerupDescription(tile.rewardPowerupId)}
+                      className="text-left hover:underline text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                    >
+                      {getPowerupLabel(tile.rewardPowerupId)}
+                    </button>
                   ) : (
                     <span className="text-slate-400 dark:text-slate-500">
                       No reward
@@ -167,6 +173,23 @@ export default function ClaimPowerupModal({
         tile={detailTile}
         onClose={() => setDetailTile(null)}
       />
+
+      {/* Powerup Description Modal */}
+      {showPowerupDescription && (
+        <Modal
+          isOpen={true}
+          onClose={() => setShowPowerupDescription(null)}
+          isDark={true}
+          maxWidth="max-w-md"
+          title={POWERUP_DEFS.find((p) => p.id === showPowerupDescription)?.name || "Powerup Info"}
+        >
+          <div className="space-y-3">
+            <p className="text-slate-700 dark:text-slate-300">
+              {POWERUP_DEFS.find((p) => p.id === showPowerupDescription)?.description || "No description available."}
+            </p>
+          </div>
+        </Modal>
+      )}
     </Modal>
   );
 }

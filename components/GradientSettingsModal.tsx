@@ -19,14 +19,14 @@ export default function GradientSettingsModal({
   isDark,
 }: GradientSettingsModalProps) {
   // Early game weights (first ~30% of tiles) - sum should always be 100
-  const [earlyEasy, setEarlyEasy] = useState(70);
-  const [earlyMedium, setEarlyMedium] = useState(25);
+  const [earlyEasy, setEarlyEasy] = useState(65);
+  const [earlyMedium, setEarlyMedium] = useState(30);
   const [earlyHard, setEarlyHard] = useState(5);
   
   // Late game weights (last ~30% of tiles) - sum should always be 100
-  const [lateEasy, setLateEasy] = useState(20);
-  const [lateMedium, setLateMedium] = useState(35);
-  const [lateHard, setLateHard] = useState(45);
+  const [lateEasy, setLateEasy] = useState(5);
+  const [lateMedium, setLateMedium] = useState(39);
+  const [lateHard, setLateHard] = useState(56);
 
   // Helper to adjust other values proportionally when one slider changes
   const adjustWeights = (changedValue: number, otherValue1: number, otherValue2: number) => {

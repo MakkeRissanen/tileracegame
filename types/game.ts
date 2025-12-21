@@ -95,23 +95,24 @@ export interface PowerupDef {
   id: string;
   name: string;
   kind: "self" | "target" | "future" | "change" | "targetPowerup" | "selfPowerup" | "doubleTile";
+  description?: string;
 }
 
 export const POWERUP_DEFS: PowerupDef[] = [
-  { id: "skip1", name: "Skip 1 tile", kind: "self" },
-  { id: "skip2", name: "Skip 2 tiles", kind: "self" },
-  { id: "skip3", name: "Skip 3 tiles", kind: "self" },
-  { id: "back1", name: "Make other team go backward 1 tile", kind: "target" },
-  { id: "back2", name: "Make other team go backward 2 tiles", kind: "target" },
-  { id: "back3", name: "Make other team go backward 3 tiles", kind: "target" },
-  { id: "copypaste", name: "Ctrl + C, Ctrl + V", kind: "future" },
-  { id: "changeTile", name: "Change tile (same difficulty pool)", kind: "change" },
-  { id: "clearCooldown", name: "Clear powerup cooldown", kind: "self" },
-  { id: "disablePowerup", name: "Disable a stored powerup from target team", kind: "targetPowerup" },
-  { id: "doublePowerup", name: "Double a stored powerup", kind: "selfPowerup" },
-  { id: "doubleEasy", name: "Double requirement on an easy tile", kind: "doubleTile" },
-  { id: "doubleMedium", name: "Double requirement on a medium tile", kind: "doubleTile" },
-  { id: "doubleHard", name: "Double requirement on a hard tile", kind: "doubleTile" },
+  { id: "skip1", name: "Skip 1 tile", kind: "self", description: "Instantly move your team forward by 1 tile without completing any tasks." },
+  { id: "skip2", name: "Skip 2 tiles", kind: "self", description: "Instantly move your team forward by 2 tiles without completing any tasks." },
+  { id: "skip3", name: "Skip 3 tiles", kind: "self", description: "Instantly move your team forward by 3 tiles without completing any tasks." },
+  { id: "back1", name: "Make other team go backward 1 tile", kind: "target", description: "Choose another team and move them backward by 1 tile." },
+  { id: "back2", name: "Make other team go backward 2 tiles", kind: "target", description: "Choose another team and move them backward by 2 tiles." },
+  { id: "back3", name: "Make other team go backward 3 tiles", kind: "target", description: "Choose another team and move them backward by 3 tiles." },
+  { id: "copypaste", name: "Copy and Paste Current Tile", kind: "future", description: "Copy the task from your current tile to a tile of equal or lower difficulty (the target tile will rise in difficulty or stay the same)." },
+  { id: "changeTile", name: "Change tile (same difficulty pool)", kind: "change", description: "Replace a tile's task with a different one from the same difficulty pool." },
+  { id: "clearCooldown", name: "Clear powerup cooldown", kind: "self", description: "Remove the powerup cooldown restriction, allowing you to use another powerup immediately." },
+  { id: "disablePowerup", name: "Disable a stored powerup from target team", kind: "targetPowerup", description: "Choose another team and disable one of their stored powerups, removing it from their inventory." },
+  { id: "doublePowerup", name: "Double a stored powerup", kind: "selfPowerup", description: "Duplicate one of your stored powerups, giving you two of the same powerup." },
+  { id: "doubleEasy", name: "Double requirement on an easy tile", kind: "doubleTile", description: "Make an easy tile require twice as many completions." },
+  { id: "doubleMedium", name: "Double requirement on a medium tile", kind: "doubleTile", description: "Make a medium tile require twice as many completions." },
+  { id: "doubleHard", name: "Double requirement on a hard tile", kind: "doubleTile", description: "Make a hard tile require twice as many completions." },
 ];
 
 // Game Events

@@ -5,7 +5,6 @@ import { useState } from "react";
 interface AdminOptionsDropdownProps {
   isDark: boolean;
   onClose: () => void;
-  onRandomizeTiles: () => void;
   onFormTeams: () => void;
   onImportTasks: () => void;
   onImportPowerups: () => void;
@@ -22,7 +21,6 @@ interface AdminOptionsDropdownProps {
 export default function AdminOptionsDropdown({
   isDark,
   onClose,
-  onRandomizeTiles,
   onFormTeams,
   onImportTasks,
   onImportPowerups,
@@ -48,7 +46,6 @@ export default function AdminOptionsDropdown({
     { label: "📥 Import tasks", onClick: () => { onClose(); onImportTasks(); } },
     { label: "📦 Import powerups", onClick: () => { onClose(); onImportPowerups(); } },
     { label: "⚙️ Gradient settings", onClick: () => { onClose(); onGradientSettings(); } },
-    { label: "🎲 Randomize tiles", onClick: onRandomizeTiles },
     { label: fogOfWarLabel, onClick: () => { onClose(); onDisableFogOfWar(); } },
     { label: "💾 Download Game Backup", onClick: () => { onClose(); alert("Download backup - Coming soon!"); } },
     { label: "📂 Restore Game Backup", onClick: () => { onClose(); alert("Restore backup - Coming soon!"); } },

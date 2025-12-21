@@ -303,7 +303,6 @@ export default function TileRaceGame() {
           <AdminOptionsDropdown
             isDark={isDark}
             onClose={() => setShowAdminOptions(false)}
-            onRandomizeTiles={handlers.handleRandomizeTiles}
             onFormTeams={() => setShowFormTeamsModal(true)}
             onImportTasks={() => setShowImportTasksModal(true)}
             onImportPowerups={() => setShowImportPowerupsModal(true)}

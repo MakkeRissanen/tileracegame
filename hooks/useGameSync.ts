@@ -86,7 +86,7 @@ export function useGameSync(gameId: string = "main") {
         // Validate event preconditions
         const validationResult = validateEvent(currentData, event);
         if (!validationResult.valid) {
-          validationReason = validationResult.reason;
+          validationReason = validationResult.reason || null;
           console.warn("Event validation failed:", validationResult.reason, "Event:", event);
           // Abort transaction by returning undefined
           return undefined;

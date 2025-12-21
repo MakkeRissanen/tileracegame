@@ -79,10 +79,15 @@ export default function UsePowerupModal({
       if (targetTile.rewardPowerupId) {
         return { allowed: false, reason: "Has reward powerup" };
       }
+      
+      if (changedTiles.has(tileNum)) return { allowed: false, reason: "Already changed" };
+      // Note: Doubled tiles CAN be copied (retaliate mechanic)
     } else if (selectedPowerup === "changeTile") {
       if (teamOnTile) return { allowed: false, reason: "Team on tile" };
       if (tileNum === MAX_TILE) return { allowed: false, reason: "Final tile" };
       if (changedTiles.has(tileNum)) return { allowed: false, reason: "Already changed" };
+      if (copyPasteTiles.has(tileNum)) return { allowed: false, reason: "Already copied" };
+      if (doubledTiles.has(tileNum)) return { allowed: false, reason: "Already doubled" };
     } else if (selectedPowerup === "doubleEasy") {
       if (tileNum === MAX_TILE) return { allowed: false, reason: "Final tile" };
       if (getTileDifficulty(tileNum) !== 1) return { allowed: false, reason: "Not easy" };
@@ -255,17 +260,9 @@ export default function UsePowerupModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} isDark={isDark} maxWidth="max-w-4xl" zIndex="z-[60]">
       <div className="flex flex-col" style={{ maxHeight: 'calc(85vh - 100px)' }}>
-        <div className="flex-shrink-0">
-          <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-            Use Powerup
-          </h2>
-          <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-            {team.name}
-          </p>
-        </div>
 
         {/* Scrollable Content Area */}
-        <div className="overflow-y-auto flex-1 px-1 pr-3 space-y-4 mt-4 min-h-0"
+        <div className="overflow-y-auto flex-1 px-1 pr-3 space-y-4 min-h-0"
           style={{
             scrollbarWidth: 'thin',
             scrollbarColor: isDark ? '#475569 #1e293b' : '#cbd5e1 #f1f5f9'
@@ -274,8 +271,8 @@ export default function UsePowerupModal({
 
         {/* Powerup Selection */}
         <div className="relative z-50 mb-2">
-          <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-            Select Powerup
+          <label className={`block text-xl font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+            Select Powerup to Use
           </label>
           <select
             value={selectedPowerup}
@@ -299,6 +296,13 @@ export default function UsePowerupModal({
               );
             })}
           </select>
+          
+          {/* Powerup Description */}
+          {selectedPowerup && powerupDef?.description && (
+            <div className={`mt-2 p-3 rounded-lg text-sm ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+              {powerupDef.description}
+            </div>
+          )}
         </div>
 
         {/* Target Team Selection */}

@@ -387,7 +387,10 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       }
 
       case "USE_POWERUP": {
-        return handleUsePowerup(game, event);
+        return handleUsePowerup(game, {
+          ...event,
+          futureTile: event.futureTile !== undefined ? String(event.futureTile) : undefined
+        });
       }
 
       // Admin events
@@ -732,7 +735,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       }
 
       case "ADMIN_SET_FOG_OF_WAR": {
-        const oldMode = game.fogOfWarMode || "none";
+        const oldMode = game.fogOfWarDisabled || "none";
         const mode = event.mode || "none";
         
         // If disabling fog of war, reveal all tiles
@@ -948,8 +951,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const gradientSettings = {
           weights: { easy: 50, medium: 35, hard: 15 }, // Not used, for backward compatibility
           gradient: true,
-          early: event.early || { easy: 70, medium: 25, hard: 5 },
-          late: event.late || { easy: 20, medium: 35, hard: 45 },
+          early: event.early || { easy: 65, medium: 30, hard: 5 },
+          late: event.late || { easy: 5, medium: 39, hard: 56 },
         };
         
         // IMPORTANT: Clear all "used" flags from task pools before randomization
@@ -1510,8 +1513,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const gradientSettings = {
           weights: { easy: 50, medium: 35, hard: 15 }, // Not used, for backward compatibility  
           gradient: true,
-          early: event.early || { easy: 70, medium: 25, hard: 5 },
-          late: event.late || { easy: 20, medium: 35, hard: 45 },
+          early: event.early || { easy: 65, medium: 30, hard: 5 },
+          late: event.late || { easy: 5, medium: 39, hard: 56 },
         };
         let next: GameState = { ...game, gradientSettings };
         next = addLog(next, `Admin saved gradient settings`);
