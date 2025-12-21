@@ -12,6 +12,7 @@ interface GameHeaderProps {
   onToggleAdminOptions: () => void;
   onAdminLogout: () => void;
   onLogout: () => void;
+  onShowRulebook: () => void;
   children?: React.ReactNode; // For admin options dropdown
 }
 
@@ -24,6 +25,7 @@ export default function GameHeader({
   onToggleAdminOptions,
   onAdminLogout,
   onLogout,
+  onShowRulebook,
   children,
 }: GameHeaderProps) {
   return (
@@ -37,6 +39,15 @@ export default function GameHeader({
         </p>
       </div>
       <div className="flex items-center gap-3">
+        {/* Rulebook Button - Always visible */}
+        <Button
+          onClick={onShowRulebook}
+          variant="secondary"
+          isDark={isDark}
+        >
+          📖 Rules
+        </Button>
+
         {/* Admin Options */}
         {isAdmin && (
           <>

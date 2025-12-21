@@ -28,6 +28,7 @@ import EditPowerupTileModal from "./EditPowerupTileModal";
 import EditPoolTaskModal from "./EditPoolTaskModal";
 import ClaimPowerupConfirmModal from "./ClaimPowerupConfirmModal";
 import PowerupClaimPlayerPickerModal from "./PowerupClaimPlayerPickerModal";
+import RulebookModal from "./RulebookModal";
 import { PoolTask } from "@/types/game";
 
 export default function TileRaceGame() {
@@ -50,6 +51,7 @@ export default function TileRaceGame() {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showSetTeamPasswordsModal, setShowSetTeamPasswordsModal] = useState(false);
   const [showUndoHistoryModal, setShowUndoHistoryModal] = useState(false);
+  const [showRulebookModal, setShowRulebookModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingPowerupTile, setEditingPowerupTile] = useState<PowerupTile | null>(null);
   const [editingPoolTask, setEditingPoolTask] = useState<PoolTask | null>(null);
@@ -299,6 +301,7 @@ export default function TileRaceGame() {
             setShowAdminOptions(false);
           }}
           onLogout={handlers.handleLogout}
+          onShowRulebook={() => setShowRulebookModal(true)}
         >
           <AdminOptionsDropdown
             isDark={isDark}
@@ -574,6 +577,13 @@ export default function TileRaceGame() {
             onConfirm={handleClaimPowerupWithPlayers}
           />
         )}
+
+        {/* Rulebook Modal */}
+        <RulebookModal
+          isOpen={showRulebookModal}
+          onClose={() => setShowRulebookModal(false)}
+          isDark={isDark}
+        />
       </div>
     </div>
   );
