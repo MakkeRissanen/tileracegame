@@ -136,6 +136,29 @@ export default function TileRaceGame() {
     setUsePowerupTeamId(null);
   };
 
+  const handleClearCooldown = async (teamId: string) => {
+    try {
+      await dispatch({
+        type: "USE_POWERUP",
+        teamId,
+        powerupId: "clearCooldown",
+      });
+    } catch (err) {
+      alert(`Failed to clear cooldown: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
+  const handleAdminToggleCooldown = async (teamId: string) => {
+    try {
+      await dispatch({
+        type: "ADMIN_TOGGLE_COOLDOWN",
+        teamId,
+      });
+    } catch (err) {
+      alert(`Failed to toggle cooldown: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
   const handleEditTeam = (teamId: string) => {
     const team = game.teams.find((t) => t.id === teamId);
     if (team) {
@@ -320,6 +343,8 @@ export default function TileRaceGame() {
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
+            onClearCooldown={handleClearCooldown}
+            onAdminToggleCooldown={handleAdminToggleCooldown}
             onEditPowerupTile={handleEditPowerupTile}
             onEditPoolTask={handleEditPoolTask}
             onClearPools={async () => {
@@ -339,6 +364,8 @@ export default function TileRaceGame() {
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
+            onClearCooldown={handleClearCooldown}
+            onAdminToggleCooldown={handleAdminToggleCooldown}
             onEditPowerupTile={handleEditPowerupTile}
             onEditPoolTask={handleEditPoolTask}
             onClearPools={async () => {

@@ -73,6 +73,7 @@ export interface GameState {
   taskPools: Record<string, PoolTask[]>;
   usedPoolTaskIds: string[];
   changedTiles: number[];
+  copyPasteTiles: number[];
   doubledTiles: number[];
   doubledTilesInfo: Record<number, { useDifficultyPoints: boolean }>;
   revealedTiles: number[];
@@ -203,4 +204,5 @@ export type GameEvent =
   | { type: "ADMIN_APPLY_DRAFT_TEAMS"; teams: Array<{ name: string; captain: string; members: string[] }>; adminName?: string }
   | { type: "ADMIN_UPDATE_TEAM"; teamId: string; updates: Partial<Team> }
   | { type: "ADMIN_UPDATE_POWERUP_TILE"; tileId: number; updates: Partial<PowerupTile>; teamClaims?: Array<{ teamId: string; claimed: boolean }> }
-  | { type: "ADMIN_UPDATE_POOL_TASK"; taskId: string; updates: Partial<PoolTask> };
+  | { type: "ADMIN_UPDATE_POOL_TASK"; taskId: string; updates: Partial<PoolTask> }
+  | { type: "ADMIN_TOGGLE_COOLDOWN"; teamId: string; adminName?: string };

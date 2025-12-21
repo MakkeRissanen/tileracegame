@@ -21,6 +21,8 @@ interface MainGameLayoutProps {
   onClearPools: () => void;
   onAdminUsePowerup?: (teamId: string) => void;
   onEditTeam?: (teamId: string) => void;
+  onClearCooldown?: (teamId: string) => void;
+  onAdminToggleCooldown?: (teamId: string) => void;
   onEditPowerupTile?: (tileId: number) => void;
   onEditPoolTask?: (taskId: string) => void;
 }
@@ -37,6 +39,8 @@ export default function MainGameLayout({
   onClearPools,
   onAdminUsePowerup,
   onEditTeam,
+  onClearCooldown,
+  onAdminToggleCooldown,
   onEditPowerupTile,
   onEditPoolTask,
 }: MainGameLayoutProps) {
@@ -56,6 +60,8 @@ export default function MainGameLayout({
             onOpenClaimPowerup={onOpenClaimPowerup}
             onAdminUsePowerup={onAdminUsePowerup}
             onEditTeam={onEditTeam}
+            onClearCooldown={onClearCooldown}
+            onAdminToggleCooldown={onAdminToggleCooldown}
           />
         </div>
 

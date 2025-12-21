@@ -122,7 +122,7 @@ export default function GameBoard({ game, isDark, myTeam, isAdmin = false, onCom
                 isDark ? "bg-yellow-900/60 text-yellow-100" : "bg-yellow-200 text-yellow-900"
               }`}
             >
-              🎁 Reward: {currentTile.rewardPowerupId}
+              ⚡ Reward: {currentTile.rewardPowerupId}
             </span>
           )}
         </div>

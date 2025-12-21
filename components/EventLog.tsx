@@ -17,7 +17,7 @@ export default function EventLog({ game, isDark }: EventLogProps) {
 
     // Parse structured completion messages
     const completionMatch = message.match(/^(.+?),\s*(.+?)\s+completed\s+(.+?)\s+\((.+?)\)\s+→\s+Current:\s+(.+)$/);
-    const completionMatchDoubled = message.match(/^(.+?),\s*(.+?)\s+completed\s+(doubled\s+)?Tile\s+(\d+):\s+"(.+?)"\s+\((.+?)\)\s+→\s+Current:\s+(.+?)(?:\s+🎁\s+Reward gained:\s+(.+))?$/);
+    const completionMatchDoubled = message.match(/^(.+?),\s*(.+?)\s+completed\s+(doubled\s+)?Tile\s+(\d+):\s+"(.+?)"\s+\((.+?)\)\s+→\s+Current:\s+(.+?)(?:\s+⚡\s+Reward gained:\s+(.+))?$/);
     const winnerMatch = message.match(/^🏆🎉\s+(.+?)\s+completed\s+the\s+(?:doubled\s+)?Final Tile!\s+(.+?)\s+are the WINNERS!/);
 
     // Format completion message with multiple lines
@@ -48,7 +48,7 @@ export default function EventLog({ game, isDark }: EventLogProps) {
           </div>
           {reward && (
             <div className="pl-2 text-[11px] break-words">
-              🎁 Reward: {reward}
+              ⚡ Reward: {reward}
             </div>
           )}
         </div>

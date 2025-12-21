@@ -161,7 +161,6 @@ export function handleUsePowerup(
           }
         : rt
     );
-    next = { ...next, raceTiles };
 
     const teams = next.teams.map((t) => {
       if (t.id !== teamId) return t;
@@ -173,7 +172,12 @@ export function handleUsePowerup(
       if (existing.has(key)) return t;
       return { ...t, copyChoice: [...(t.copyChoice || []), entry] };
     });
-    next = { ...next, teams };
+    
+    const copyPasteTiles = Array.from(
+      new Set([...(next.copyPasteTiles || []), tileN])
+    );
+    
+    next = { ...next, raceTiles, teams, copyPasteTiles };
     next = addLog(
       next,
       `${team.name} used ${powerupLabel(

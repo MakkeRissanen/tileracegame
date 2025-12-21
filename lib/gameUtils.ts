@@ -83,6 +83,7 @@ export function initialGame(): GameState {
     taskPools: { "1": [], "2": [], "3": [] },
     usedPoolTaskIds: [],
     changedTiles: [],
+    copyPasteTiles: [],
     doubledTiles: [],
     doubledTilesInfo: {},
     revealedTiles: [1, 2, 3, 4, 5, 6, 7, 8],

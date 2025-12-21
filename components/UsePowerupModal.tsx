@@ -33,6 +33,7 @@ export default function UsePowerupModal({
 
   const revealedTiles = new Set(game.revealedTiles || []);
   const changedTiles = new Set(game.changedTiles || []);
+  const copyPasteTiles = new Set(game.copyPasteTiles || []);
   const doubledTiles = new Set(
     Object.keys(game.doubledTilesInfo || {}).map((k) => Number(k))
   );
@@ -480,9 +481,14 @@ export default function UsePowerupModal({
                             {/* Status Badges */}
                             {isRevealed && (
                               <div className="absolute bottom-1 right-1 flex gap-1">
+                                {copyPasteTiles.has(tileN) && (
+                                  <span className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow-lg border-2 ${isDark ? "bg-blue-600 text-white border-blue-400" : "bg-blue-500 text-white border-blue-300"}`}>
+                                    Copied
+                                  </span>
+                                )}
                                 {changedTiles.has(tileN) && (
-                                  <span className={`px-1.5 py-0.5 rounded text-xs ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-700"}`}>
-                                    •
+                                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg border-2 ${isDark ? "bg-purple-600 text-white border-purple-400" : "bg-purple-500 text-white border-purple-300"}`}>
+                                    🔄
                                   </span>
                                 )}
                                 {doubledTiles.has(tileN) && (

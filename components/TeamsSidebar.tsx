@@ -16,6 +16,8 @@ interface TeamsSidebarProps {
   onOpenClaimPowerup?: (teamId: string) => void;
   onAdminUsePowerup?: (teamId: string) => void;
   onEditTeam?: (teamId: string) => void;
+  onClearCooldown?: (teamId: string) => void;
+  onAdminToggleCooldown?: (teamId: string) => void;
 }
 
 export default function TeamsSidebar({
@@ -29,6 +31,8 @@ export default function TeamsSidebar({
   onOpenClaimPowerup,
   onAdminUsePowerup,
   onEditTeam,
+  onClearCooldown,
+  onAdminToggleCooldown,
 }: TeamsSidebarProps) {
   const MAX_TILE = 56;
   const [showPlayerModal, setShowPlayerModal] = useState(false);
@@ -182,7 +186,14 @@ export default function TeamsSidebar({
             {/* Powerup Count */}
             {team.inventory && team.inventory.length > 0 && (
               <p className={`text-xs mb-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                🎁 {team.inventory.length} powerup{team.inventory.length > 1 ? "s" : ""}
+                ⚡ {team.inventory.length} powerup{team.inventory.length > 1 ? "s" : ""}
+              </p>
+            )}
+
+            {/* Cooldown Status */}
+            {team.powerupCooldown && (
+              <p className={`text-xs mb-2 ${isDark ? "text-orange-400" : "text-orange-600"}`}>
+                🔒 Powerup Cooldown Active
               </p>
             )}
 
@@ -200,24 +211,104 @@ export default function TeamsSidebar({
                 >
                   ✅ Complete Tile
                 </Button>
+                
+                {/* Claim Powerup and Use Powerup Buttons - side by side (same as team view) */}
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="secondary"
                     isDark={isDark}
-                    className="text-xs py-1.5"
+                    className="text-xs h-[52px] flex flex-col items-center justify-center pt-4"
                     onClick={() => onOpenClaimPowerup && onOpenClaimPowerup(team.id)}
                   >
-                    Claim Powerup
+                    <span>Claim Powerup</span>
+                    <span>⚡</span>
                   </Button>
+                  
+                  {/* Use Powerup Button - with Clear overlay if cooldown active */}
+                  <div className="relative">
+                    <Button
+                      variant={team.powerupCooldown ? "danger" : "secondary"}
+                      isDark={isDark}
+                      className={`w-full text-xs h-[52px] ${
+                        team.powerupCooldown 
+                          ? team.inventory?.includes("clearCooldown")
+                            ? "flex flex-col justify-start pt-1"
+                            : "flex flex-col items-center justify-center"
+                          : "flex flex-col items-center justify-center pt-4"
+                      }`}
+                      onClick={() => onAdminUsePowerup && onAdminUsePowerup(team.id)}
+                      disabled={team.powerupCooldown || !team.inventory || team.inventory.length === 0}
+                    >
+                      {team.powerupCooldown ? (
+                        "Cooldown 🔒"
+                      ) : (
+                        <>
+                          <span>Use Powerup</span>
+                          <span>⚡</span>
+                        </>
+                      )}
+                    </Button>
+                    {team.powerupCooldown && team.inventory?.includes("clearCooldown") && (
+                      <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Do you want to use powerup: Clear Cooldown?')) {
+                              onClearCooldown && onClearCooldown(team.id);
+                            }
+                          }}
+                          className={`text-[9px] py-0.5 px-2 rounded font-medium transition-all ${
+                            isDark
+                              ? "bg-emerald-700 hover:bg-emerald-600 text-white"
+                              : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                          }`}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Admin Cooldown Toggle - styled similar to team view */}
+                <div className="relative">
                   <Button
-                    variant="secondary"
+                    variant={team.powerupCooldown ? "danger" : "secondary"}
                     isDark={isDark}
-                    className="text-xs py-1.5"
-                    onClick={() => onAdminUsePowerup && onAdminUsePowerup(team.id)}
-                    disabled={!team.inventory || team.inventory.length === 0}
+                    className={`w-full text-xs h-[52px] ${
+                      team.powerupCooldown 
+                        ? "flex flex-col justify-start pt-1"
+                        : "flex flex-col items-center justify-center"
+                    }`}
+                    onClick={() => {
+                      if (!team.powerupCooldown) {
+                        if (window.confirm(`Enable powerup cooldown for ${team.name}?`)) {
+                          onAdminToggleCooldown && onAdminToggleCooldown(team.id);
+                        }
+                      }
+                    }}
+                    disabled={team.powerupCooldown}
                   >
-                    Use Powerup
+                    {team.powerupCooldown ? "Cooldown 🔒" : "Set Cooldown"}
                   </Button>
+                  {team.powerupCooldown && (
+                    <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Disable cooldown for ${team.name}?`)) {
+                            onAdminToggleCooldown && onAdminToggleCooldown(team.id);
+                          }
+                        }}
+                        className={`text-[9px] py-0.5 px-2 rounded font-medium transition-all ${
+                          isDark
+                            ? "bg-yellow-700 hover:bg-yellow-600 text-white"
+                            : "bg-yellow-600 hover:bg-yellow-500 text-white"
+                        }`}
+                      >
+                        👑 Admin Clear
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -234,26 +325,62 @@ export default function TeamsSidebar({
                   Complete Tile
                 </Button>
                 
-                {/* Claim Powerup Button */}
-                <Button
-                  variant="secondary"
-                  isDark={isDark}
-                  className="w-full text-sm"
-                  onClick={() => onOpenClaimPowerup && onOpenClaimPowerup(team.id)}
-                >
-                  🎁 Claim Powerup
-                </Button>
-                
-                {/* Use Powerup Button */}
-                <Button
-                  variant="secondary"
-                  isDark={isDark}
-                  className="w-full"
-                  onClick={onUsePowerup}
-                  disabled={team.powerupCooldown || !team.inventory || team.inventory.length === 0}
-                >
-                  {team.powerupCooldown ? "🔒 Powerup Cooldown" : "🎁 Use Powerup"}
-                </Button>
+                {/* Claim Powerup and Use Powerup Buttons - side by side */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    isDark={isDark}
+                    className="text-xs h-[52px] flex flex-col items-center justify-center pt-4"
+                    onClick={() => onOpenClaimPowerup && onOpenClaimPowerup(team.id)}
+                  >
+                    <span>Claim Powerup</span>
+                    <span>⚡</span>
+                  </Button>
+                  
+                  {/* Use Powerup Button - with Clear overlay if cooldown active */}
+                  <div className="relative">
+                    <Button
+                      variant={team.powerupCooldown ? "danger" : "secondary"}
+                      isDark={isDark}
+                      className={`w-full text-xs h-[52px] ${
+                        team.powerupCooldown 
+                          ? team.inventory?.includes("clearCooldown")
+                            ? "flex flex-col justify-start pt-1"
+                            : "flex flex-col items-center justify-center"
+                          : "flex flex-col items-center justify-center pt-4"
+                      }`}
+                      onClick={onUsePowerup}
+                      disabled={team.powerupCooldown || !team.inventory || team.inventory.length === 0}
+                    >
+                      {team.powerupCooldown ? (
+                        "Cooldown 🔒"
+                      ) : (
+                        <>
+                          <span>Use Powerup</span>
+                          <span>⚡</span>
+                        </>
+                      )}
+                    </Button>
+                    {team.powerupCooldown && team.inventory?.includes("clearCooldown") && (
+                      <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Do you want to use powerup: Clear Cooldown?')) {
+                              onClearCooldown && onClearCooldown(team.id);
+                            }
+                          }}
+                          className={`text-[9px] py-0.5 px-2 rounded font-medium transition-all ${
+                            isDark
+                              ? "bg-emerald-700 hover:bg-emerald-600 text-white"
+                              : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                          }`}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

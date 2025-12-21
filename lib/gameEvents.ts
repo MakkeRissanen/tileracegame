@@ -268,7 +268,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           next = addLog(
             next,
             `🏆🎉 ${team.name} completed the ${doubledText}Final Tile! ${playersText} are the WINNERS! 🏆🎉 (+${pointsForDiff} pts each)${
-              rewardRes.granted ? ` 🎁 Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
+              rewardRes.granted ? ` ⚡ Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
             }`
           );
         } else if (nextPos === completedTile) {
@@ -323,7 +323,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           `${team.name} used copy-choice at ${tileDesc(next, here)}${fromPart} → Current: ${tileDesc(
             next,
             dest
-          )}${rewardRes.granted ? ` 🎁 Reward gained: ${powerupLabel(rewardRes.granted)}` : ""}`
+          )}${rewardRes.granted ? ` ⚡ Reward gained: ${powerupLabel(rewardRes.granted)}` : ""}`
         );
         return next;
       }
@@ -406,6 +406,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           Math.min(maxCompletions, Math.floor(Number(event.minCompletions) || 1))
         );
 
+        const oldTile = game.raceTiles.find((t) => t.n === n);
         const raceTiles = game.raceTiles.map((t) =>
           t.n === n
             ? {
@@ -421,7 +422,23 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             : t
         );
         let next = { ...game, raceTiles };
-        next = addLog(next, `Tile ${n} admin-updated: "${label}"`);
+        
+        // Build change description
+        const changes: string[] = [];
+        if (oldTile) {
+          if (oldTile.label !== label) changes.push(`label: "${oldTile.label}" → "${label}"`);
+          if (oldTile.difficulty !== difficulty) changes.push(`difficulty: ${oldTile.difficulty} → ${difficulty}`);
+          if (oldTile.rewardPowerupId !== rewardPowerupId) {
+            const oldReward = oldTile.rewardPowerupId ? powerupLabel(oldTile.rewardPowerupId) : "none";
+            const newReward = rewardPowerupId ? powerupLabel(rewardPowerupId) : "none";
+            changes.push(`reward: ${oldReward} → ${newReward}`);
+          }
+          if (oldTile.maxCompletions !== maxCompletions) changes.push(`maxCompletions: ${oldTile.maxCompletions} → ${maxCompletions}`);
+          if (oldTile.minCompletions !== minCompletions) changes.push(`minCompletions: ${oldTile.minCompletions} → ${minCompletions}`);
+        }
+        
+        const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
+        next = addLog(next, `Admin updated Tile ${n}${changeDesc}`);
         return next;
       }
 
@@ -491,6 +508,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           ? event.claimType
           : "eachTeam";
 
+        const oldTile = (game.powerupTiles || []).find((t) => t.id === id);
         const powerupTiles = (game.powerupTiles || []).map((t) => {
           if (t.id === id) {
             return {
@@ -509,7 +527,23 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           return t;
         });
         let next = { ...game, powerupTiles };
-        next = addLog(next, `Powerup tile P${id} updated: "${label}"`);
+        
+        // Build change description
+        const changes: string[] = [];
+        if (oldTile) {
+          if (oldTile.label !== label) changes.push(`label: "${oldTile.label}" → "${label}"`);
+          const finalReward = rewardPowerupId || oldTile.rewardPowerupId;
+          if (oldTile.rewardPowerupId !== finalReward) {
+            changes.push(`reward: ${powerupLabel(oldTile.rewardPowerupId)} → ${powerupLabel(finalReward)}`);
+          }
+          if (oldTile.pointsPerCompletion !== pointsPerCompletion) changes.push(`points: ${oldTile.pointsPerCompletion} → ${pointsPerCompletion}`);
+          if (oldTile.maxCompletions !== maxCompletions) changes.push(`maxCompletions: ${oldTile.maxCompletions} → ${maxCompletions}`);
+          if (oldTile.minCompletions !== minCompletions) changes.push(`minCompletions: ${oldTile.minCompletions} → ${minCompletions}`);
+          if (oldTile.claimType !== claimType) changes.push(`claimType: ${oldTile.claimType} → ${claimType}`);
+        }
+        
+        const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
+        next = addLog(next, `Admin updated Powerup tile P${id}${changeDesc}`);
         return next;
       }
 
@@ -535,42 +569,67 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const instructions = (event.instructions || "").toString();
         const image = (event.image || "").toString();
 
+        const oldTask = (game.taskPools?.[diff] || []).find((t) => t.id === id);
         const pool = (game.taskPools?.[diff] || []).map((t) =>
           t.id === id ? { ...t, label, instructions, image } : t
         );
         const taskPools = { ...game.taskPools, [diff]: pool };
         let next = { ...game, taskPools };
-        next = addLog(next, `Edited possible task (diff ${diff}): "${label}"`);
+        
+        // Build change description
+        const changes: string[] = [];
+        if (oldTask) {
+          if (oldTask.label !== label) changes.push(`label: "${oldTask.label}" → "${label}"`);
+          if (oldTask.instructions !== instructions && (oldTask.instructions || instructions)) {
+            changes.push(`instructions changed`);
+          }
+          if (oldTask.image !== image && (oldTask.image || image)) {
+            changes.push(`image changed`);
+          }
+        }
+        
+        const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
+        next = addLog(next, `Admin edited pool task (difficulty ${diff})${changeDesc}`);
         return next;
       }
 
       case "ADMIN_REMOVE_POOL_TASK": {
         const diff = String(clamp(Number(event.diff || 1), 1, 3));
         const taskId = event.taskId;
+        const removedTask = (game.taskPools?.[diff] || []).find((x) => x.id === taskId);
         const taskPools = {
           ...game.taskPools,
           [diff]: (game.taskPools?.[diff] || []).filter((x) => x.id !== taskId),
         };
         const usedPoolTaskIds = (game.usedPoolTaskIds || []).filter((id) => id !== taskId);
-        return { ...game, taskPools, usedPoolTaskIds };
+        let next = { ...game, taskPools, usedPoolTaskIds };
+        if (removedTask) {
+          next = addLog(next, `Admin removed pool task (difficulty ${diff}): "${removedTask.label}"`);
+        }
+        return next;
       }
 
       case "ADMIN_CLEAR_TASK_POOLS": {
+        const count1 = (game.taskPools?.["1"] || []).length;
+        const count2 = (game.taskPools?.["2"] || []).length;
+        const count3 = (game.taskPools?.["3"] || []).length;
+        const totalCount = count1 + count2 + count3;
         const taskPools: Record<string, any[]> = { "1": [], "2": [], "3": [] };
         const usedPoolTaskIds: string[] = [];
         let next = { ...game, taskPools, usedPoolTaskIds };
-        next = addLog(next, "Admin cleared all task pools.");
+        next = addLog(next, `Admin cleared all task pools (removed ${totalCount} tasks: E:${count1} M:${count2} H:${count3})`);
         return next;
       }
 
       case "ADMIN_CLEAR_POWERUP_TILES": {
+        const tileCount = (game.powerupTiles || []).length;
         const powerupTiles: any[] = [];
         const teams: Team[] = (game.teams || []).map((t) => ({
           ...t,
           claimedPowerupTiles: [],
         }));
         let next = { ...game, powerupTiles, teams };
-        next = addLog(next, "Admin cleared all powerup tiles.");
+        next = addLog(next, `Admin cleared all powerup tiles (removed ${tileCount} tiles)`);
         return next;
       }
 
@@ -673,6 +732,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       }
 
       case "ADMIN_SET_FOG_OF_WAR": {
+        const oldMode = game.fogOfWarMode || "none";
         const mode = event.mode || "none";
         
         // If disabling fog of war, reveal all tiles
@@ -684,7 +744,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           
           let next: GameState = { ...game, fogOfWarDisabled: mode, revealedTiles };
           const modeText = mode === "admin" ? "for admin only" : "for everyone";
-          next = addLog(next, `Admin disabled fog of war ${modeText} - all tiles revealed`);
+          next = addLog(next, `Admin changed fog of war: ${oldMode} → ${mode} (disabled ${modeText}) - all tiles revealed`);
           return next;
         } else {
           // Re-enable fog of war - reset revealed tiles to current team progress
@@ -728,7 +788,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           }
           
           let next: GameState = { ...game, fogOfWarDisabled: mode, revealedTiles: Array.from(revealedTiles) };
-          next = addLog(next, "Admin re-enabled fog of war");
+          next = addLog(next, `Admin changed fog of war: ${oldMode} → ${mode} (re-enabled, ${revealedTiles.size} tiles revealed)`);
           return next;
         }
       }
@@ -1517,6 +1577,22 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         return next;
       }
 
+      case "ADMIN_TOGGLE_COOLDOWN": {
+        const team = game.teams.find((t) => t.id === event.teamId);
+        if (!team) return game;
+        
+        const oldState = team.powerupCooldown;
+        const newState = !oldState;
+        const teams = game.teams.map((t) => 
+          t.id === event.teamId ? { ...t, powerupCooldown: newState } : t
+        );
+        
+        return addLog(
+          { ...game, teams },
+          `Admin changed powerup cooldown for ${team.name}: ${oldState ? "ON" : "OFF"} → ${newState ? "ON" : "OFF"}`
+        );
+      }
+
       case "ADMIN_UNDO": {
         const history = game.eventHistory || [];
         if (history.length === 0) {
@@ -1535,6 +1611,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       }
 
       case "ADMIN_UPDATE_TEAM": {
+        const oldTeam = game.teams.find((t) => t.id === event.teamId);
         const teams = game.teams.map((t) => {
           if (t.id === event.teamId) {
             return { ...t, ...event.updates };
@@ -1543,11 +1620,35 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         });
         let next = { ...game, teams };
         const team = teams.find((t) => t.id === event.teamId);
-        next = addLog(next, `Admin updated team: ${team?.name || "Unknown"}`);
+        
+        // Build change description
+        const changes: string[] = [];
+        if (oldTeam && event.updates) {
+          for (const [key, newValue] of Object.entries(event.updates)) {
+            const oldValue = (oldTeam as any)[key];
+            if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+              if (key === "inventory") {
+                const oldLen = Array.isArray(oldValue) ? oldValue.length : 0;
+                const newLen = Array.isArray(newValue) ? (newValue as any[]).length : 0;
+                changes.push(`inventory: ${oldLen} items → ${newLen} items`);
+              } else if (key === "pos") {
+                changes.push(`position: ${oldValue} → ${newValue}`);
+              } else if (key === "powerupCooldown") {
+                changes.push(`cooldown: ${oldValue ? "ON" : "OFF"} → ${newValue ? "ON" : "OFF"}`);
+              } else {
+                changes.push(`${key}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+              }
+            }
+          }
+        }
+        
+        const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
+        next = addLog(next, `Admin updated team ${team?.name || "Unknown"}${changeDesc}`);
         return next;
       }
 
       case "ADMIN_UPDATE_POWERUP_TILE": {
+        const oldTile = (game.powerupTiles || []).find((t) => t.id === event.tileId);
         const powerupTiles = (game.powerupTiles || []).map((t) => {
           if (t.id === event.tileId) {
             return { ...t, ...event.updates };
@@ -1578,7 +1679,20 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         
         let next = { ...game, powerupTiles, teams };
         const tile = powerupTiles.find((t) => t.id === event.tileId);
-        next = addLog(next, `👑 Admin updated powerup tile: ${tile?.label || "Unknown"}`);
+        
+        // Build change description
+        const changes: string[] = [];
+        if (oldTile && event.updates) {
+          for (const [key, newValue] of Object.entries(event.updates)) {
+            const oldValue = (oldTile as any)[key];
+            if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+              changes.push(`${key}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+            }
+          }
+        }
+        
+        const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
+        next = addLog(next, `Admin updated powerup tile ${tile?.label || "Unknown"}${changeDesc}`);
         return next;
       }
 
@@ -1586,12 +1700,14 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const taskPools = { ...game.taskPools };
         let updated = false;
         let updatedTask: PoolTask | undefined;
+        let oldTask: PoolTask | undefined;
         
         for (const difficulty of [1, 2, 3]) {
           if (taskPools[difficulty]) {
             taskPools[difficulty] = taskPools[difficulty].map((t) => {
               if (t.id === event.taskId) {
                 updated = true;
+                oldTask = t;
                 updatedTask = { ...t, ...event.updates };
                 return updatedTask;
               }
@@ -1603,7 +1719,20 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         if (!updated) return game;
         
         let next = { ...game, taskPools };
-        next = addLog(next, `👑 Admin updated pool task: ${updatedTask?.label || "Unknown"}`);
+        
+        // Build change description
+        const changes: string[] = [];
+        if (oldTask && event.updates) {
+          for (const [key, newValue] of Object.entries(event.updates)) {
+            const oldValue = (oldTask as any)[key];
+            if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+              changes.push(`${key}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+            }
+          }
+        }
+        
+        const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
+        next = addLog(next, `Admin updated pool task ${updatedTask?.label || "Unknown"}${changeDesc}`);
         return next;
       }
 

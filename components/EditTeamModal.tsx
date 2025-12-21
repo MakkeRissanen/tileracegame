@@ -148,7 +148,7 @@ export default function EditTeamModal({
                     `}
                   >
                     <span className={isDark ? "text-slate-200" : "text-slate-800"}>
-                      🎁 {powerupDef?.name || powerupId}
+                      ⚡ {powerupDef?.name || powerupId}
                     </span>
                     <button
                       onClick={() => handleRemovePowerup(idx)}

@@ -71,6 +71,7 @@ export function useGameSync(gameId: string = "main") {
 
     processingEvent.current = true;
     const { event, resolve, reject } = eventQueue.current[0];
+    let validationReason: string | null = null;
 
     try {
       const gameRef = ref(database, `games/${gameId}`);
@@ -85,7 +86,8 @@ export function useGameSync(gameId: string = "main") {
         // Validate event preconditions
         const validationResult = validateEvent(currentData, event);
         if (!validationResult.valid) {
-          console.warn("Event validation failed:", validationResult.reason);
+          validationReason = validationResult.reason;
+          console.warn("Event validation failed:", validationResult.reason, "Event:", event);
           // Abort transaction by returning undefined
           return undefined;
         }
@@ -102,7 +104,7 @@ export function useGameSync(gameId: string = "main") {
         resolve();
       } else {
         // Transaction aborted (validation failed or conflict)
-        reject(new Error("Event validation failed or conflict detected"));
+        reject(new Error(validationReason || "Event validation failed or conflict detected"));
       }
 
       // Remove processed event from queue
@@ -163,13 +165,19 @@ export function useGameSync(gameId: string = "main") {
             return { valid: false, reason: "Team not found" };
           }
 
-          if (!(team.inventory || []).includes(event.powerupId)) {
-            return { valid: false, reason: "Team doesn't have this powerup" };
+          const inventory = team.inventory || [];
+          if (!inventory.includes(event.powerupId)) {
+            console.log("Powerup validation failed:", {
+              powerupId: event.powerupId,
+              inventory: inventory,
+              teamName: team.name
+            });
+            return { valid: false, reason: `Team doesn't have this powerup (has: ${inventory.join(", ")})` };
           }
 
           // Check cooldown
           if (team.powerupCooldown && event.powerupId !== "clearCooldown") {
-            return { valid: false, reason: "Team is on powerup cooldown" };
+            return { valid: false, reason: "Powerup cooldown is active. Use 'Clear Cooldown' powerup or wait for admin to disable it." };
           }
 
           // Validate changeTile hasn't already been used on this tile
@@ -177,6 +185,15 @@ export function useGameSync(gameId: string = "main") {
             const changedTiles = new Set(currentGame.changedTiles || []);
             if (changedTiles.has(Number(event.futureTile))) {
               return { valid: false, reason: "Tile already changed" };
+            }
+          }
+
+          // Validate copypaste target tile
+          if (event.powerupId === "copypaste" && event.futureTile) {
+            const tileN = Number(event.futureTile);
+            const copyPasteTiles = new Set(currentGame.copyPasteTiles || []);
+            if (copyPasteTiles.has(tileN)) {
+              return { valid: false, reason: "Tile already copied to" };
             }
           }
 
