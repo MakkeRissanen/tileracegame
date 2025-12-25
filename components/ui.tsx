@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 
 export function btnClass(
   variant: "primary" | "secondary" | "danger" | "ghost",
@@ -82,16 +82,36 @@ export function Modal({
   maxWidth = "max-w-3xl",
   zIndex = "z-50",
 }: ModalProps) {
-  if (!isOpen) return null;
+  const [isVisible, setIsVisible] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      // Small delay to trigger animation
+      setTimeout(() => setIsVisible(true), 10);
+    } else {
+      setIsVisible(false);
+      // Wait for animation to complete before unmounting
+      const timer = setTimeout(() => setShouldRender(false), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!shouldRender) return null;
   
   return (
     <div
-      className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/30 p-4`}
+      className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/30 p-4 transition-opacity duration-200 ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
       onClick={onClose}
     >
       <div
-        className={`w-full ${maxWidth} max-h-[90vh] overflow-y-auto rounded-2xl p-4 shadow-xl ${
+        className={`w-full ${maxWidth} max-h-[90vh] overflow-y-auto rounded-2xl p-4 shadow-xl transition-all duration-200 ${
           isDark ? "bg-slate-800 dark-scrollbar" : "bg-white"
+        } ${
+          isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}
         onClick={(e) => e.stopPropagation()}
       >

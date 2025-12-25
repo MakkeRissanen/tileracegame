@@ -9,8 +9,18 @@ interface PlayerPointsPanelProps {
 }
 
 export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelProps) {
-  const playerPoints = game.playerPoints || {};
-  const sortedPlayers = Object.entries(playerPoints).sort(([, a], [, b]) => b - a);
+  // Collect all player points from all teams
+  const allPlayerPoints: Record<string, number> = {};
+  
+  game.teams?.forEach((team) => {
+    if (team.playerPoints) {
+      Object.keys(team.playerPoints).forEach((player) => {
+        allPlayerPoints[player] = (allPlayerPoints[player] || 0) + team.playerPoints[player];
+      });
+    }
+  });
+  
+  const sortedPlayers = Object.entries(allPlayerPoints).sort(([, a], [, b]) => b - a);
 
   // Find which team each player belongs to
   const getPlayerTeams = (playerName: string): string[] => {

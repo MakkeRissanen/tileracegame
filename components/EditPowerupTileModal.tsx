@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PowerupTile, GameState } from "@/types/game";
 import { Modal, Button, inputClass } from "./ui";
 
@@ -39,6 +39,26 @@ export default function EditPowerupTileModal({
     });
     return claims;
   });
+
+  // Sync state when modal opens or tile changes
+  useEffect(() => {
+    if (isOpen) {
+      setLabel(tile.label);
+      setInstructions(tile.instructions);
+      setImage(tile.image);
+      setRewardPowerupId(tile.rewardPowerupId);
+      setPointsPerCompletion(tile.pointsPerCompletion);
+      setMinCompletions(tile.minCompletions);
+      setMaxCompletions(tile.maxCompletions);
+      setClaimType(tile.claimType);
+      
+      const claims: Record<string, boolean> = {};
+      game.teams?.forEach((team) => {
+        claims[team.id] = (team.claimedPowerupTiles || []).includes(tile.id);
+      });
+      setTeamClaims(claims);
+    }
+  }, [isOpen, tile, game.teams]);
 
   const handleSave = async () => {
     setSaving(true);

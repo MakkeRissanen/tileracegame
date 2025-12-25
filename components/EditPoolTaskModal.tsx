@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PoolTask } from "@/types/game";
 import { Modal, Button, inputClass } from "./ui";
 
@@ -25,6 +25,17 @@ export default function EditPoolTaskModal({
   const [minCompletions, setMinCompletions] = useState(task.minCompletions || 1);
   const [maxCompletions, setMaxCompletions] = useState(task.maxCompletions || 1);
   const [saving, setSaving] = useState(false);
+
+  // Sync state when modal opens or task changes
+  useEffect(() => {
+    if (isOpen) {
+      setLabel(task.label);
+      setInstructions(task.instructions);
+      setImage(task.image);
+      setMinCompletions(task.minCompletions || 1);
+      setMaxCompletions(task.maxCompletions || 1);
+    }
+  }, [isOpen, task]);
 
   const handleSave = async () => {
     setSaving(true);

@@ -52,7 +52,7 @@ export default function TileRaceGame() {
   const [showSetTeamPasswordsModal, setShowSetTeamPasswordsModal] = useState(false);
   const [showUndoHistoryModal, setShowUndoHistoryModal] = useState(false);
   const [showRulebookModal, setShowRulebookModal] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editingPowerupTile, setEditingPowerupTile] = useState<PowerupTile | null>(null);
   const [editingPoolTask, setEditingPoolTask] = useState<PoolTask | null>(null);
   
@@ -162,10 +162,7 @@ export default function TileRaceGame() {
   };
 
   const handleEditTeam = (teamId: string) => {
-    const team = game.teams.find((t) => t.id === teamId);
-    if (team) {
-      setEditingTeam(team);
-    }
+    setEditingTeamId(teamId);
   };
 
   const handleUpdateTeam = async (teamId: string, updates: Partial<Team>) => {
@@ -175,7 +172,7 @@ export default function TileRaceGame() {
         teamId,
         updates,
       });
-      setEditingTeam(null);
+      setEditingTeamId(null);
     } catch (err) {
       alert(`Failed to update team: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
@@ -514,15 +511,19 @@ export default function TileRaceGame() {
         )}
 
         {/* Edit Team Modal */}
-        {editingTeam && (
-          <EditTeamModal
-            isOpen={true}
-            isDark={isDark}
-            team={editingTeam}
-            onClose={() => setEditingTeam(null)}
-            onUpdateTeam={handleUpdateTeam}
-          />
-        )}
+        {editingTeamId && (() => {
+          const team = game.teams.find((t) => t.id === editingTeamId);
+          return team ? (
+            <EditTeamModal
+              isOpen={true}
+              isDark={isDark}
+              team={team}
+              game={game}
+              onClose={() => setEditingTeamId(null)}
+              onUpdateTeam={handleUpdateTeam}
+            />
+          ) : null;
+        })()}
 
         {/* Edit Powerup Tile Modal */}
         {editingPowerupTile && (

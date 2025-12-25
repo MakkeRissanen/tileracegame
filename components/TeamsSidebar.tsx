@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { GameState, Team } from "@/types/game";
 import { Button, Modal, inputClass } from "./ui";
 import { diffTint } from "@/lib/gameUtils";
@@ -20,7 +20,7 @@ interface TeamsSidebarProps {
   onAdminToggleCooldown?: (teamId: string) => void;
 }
 
-export default function TeamsSidebar({
+function TeamsSidebar({
   game,
   isDark,
   myTeam,
@@ -530,3 +530,26 @@ export default function TeamsSidebar({
     </>
   );
 }
+
+export default memo(TeamsSidebar, (prevProps, nextProps) => {
+  // Only re-render if relevant data changes
+  return (
+    prevProps.isDark === nextProps.isDark &&
+    prevProps.myTeam?.id === nextProps.myTeam?.id &&
+    prevProps.isAdmin === nextProps.isAdmin &&
+    JSON.stringify(prevProps.game.teams.map(t => ({ 
+      id: t.id, 
+      name: t.name, 
+      pos: t.pos, 
+      inventory: t.inventory,
+      powerupCooldown: t.powerupCooldown
+    }))) === 
+    JSON.stringify(nextProps.game.teams.map(t => ({ 
+      id: t.id, 
+      name: t.name, 
+      pos: t.pos, 
+      inventory: t.inventory,
+      powerupCooldown: t.powerupCooldown
+    })))
+  );
+});

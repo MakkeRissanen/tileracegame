@@ -1,0 +1,26 @@
+{
+  "rules": {
+    "games": {
+      "$gameId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['tiles', 'teams', 'config']) || newData.hasChildren(['tiles', 'teams']) || newData.exists()",
+        "tiles": {
+          ".validate": "newData.hasChildren() || !newData.exists()"
+        },
+        "teams": {
+          ".validate": "newData.hasChildren() || !newData.exists()"
+        },
+        "config": {
+          ".validate": "newData.hasChildren() || !newData.exists()"
+        },
+        "eventLog": {
+          ".validate": "newData.hasChildren() || !newData.exists()"
+        },
+        "undoHistory": {
+          ".validate": "newData.hasChildren() || !newData.exists()"
+        }
+      }
+    }
+  }
+}

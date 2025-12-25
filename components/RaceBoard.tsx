@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { GameState, Team, RaceTile } from "@/types/game";
 import { Modal, Button } from "./ui";
 import { diffTint } from "@/lib/gameUtils";
@@ -12,18 +12,18 @@ interface RaceBoardProps {
   isAdmin?: boolean;
 }
 
-export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
+function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
   const [selectedTile, setSelectedTile] = useState<RaceTile | null>(null);
   const difficultyColors = {
     1: "bg-emerald-800",
-    2: "bg-amber-800",
-    3: "bg-purple-800",
+    2: "bg-yellow-800",
+    3: "bg-purple-900",
   };
 
   const difficultyBorderColors = {
-    1: "border-emerald-400",
-    2: "border-amber-400",
-    3: "border-purple-400",
+    1: "border-emerald-600",
+    2: "border-yellow-600",
+    3: "border-purple-600",
   };
 
   const difficultyLabels = {
@@ -135,13 +135,18 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
           ) : (
             <>
               {tile.image && (
-                <img
-                  src={tile.image}
-                  alt=""
-                  className="w-20 h-20 object-contain mb-2"
-                />
+                <div className="drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">
+                  <img
+                    src={tile.image}
+                    alt=""
+                    className="w-20 h-20 object-contain mb-2"
+                  />
+                </div>
               )}
-              <p className={`text-center text-sm font-semibold line-clamp-2 text-white mt-1`}>
+              <p 
+                className={`text-center text-sm font-semibold line-clamp-2 text-white mt-1`}
+                style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}
+              >
                 {tile.label}
               </p>
             </>
@@ -150,15 +155,15 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
 
         {/* Status Badges */}
         {revealed && (
-          <div className="absolute bottom-1 right-1 flex gap-1">
+          <div className="absolute bottom-12 right-1 flex gap-1">
             {game.copyPasteTiles?.includes(tile.n) && (
               <span className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow-lg border-2 ${isDark ? "bg-blue-600 text-white border-blue-400" : "bg-blue-500 text-white border-blue-300"}`}>
                 Copied
               </span>
             )}
             {game.changedTiles?.includes(tile.n) && (
-              <span className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg border-2 ${isDark ? "bg-purple-600 text-white border-purple-400" : "bg-purple-500 text-white border-purple-300"}`}>
-                🔄
+              <span className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow-lg border-2 ${isDark ? "bg-purple-600 text-white border-purple-400" : "bg-purple-500 text-white border-purple-300"}`}>
+                Changed
               </span>
             )}
             {game.doubledTiles?.includes(tile.n) && (
@@ -171,17 +176,16 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
 
         {/* Team Position Markers */}
         {teams.length > 0 && (
-          <div className="absolute bottom-1 left-1 flex flex-col gap-0.5">
+          <div className="absolute bottom-12 -left-1 flex flex-col gap-0.5 items-start">
             {teams.slice(0, 3).map((team, idx) => (
-              <div
+              <span
                 key={team.id}
-                className={`px-2 py-0.5 rounded-full text-xs font-medium text-white ${team.color}`}
-                style={{
-                  transform: teams.length > 1 ? 'scale(0.8)' : undefined,
-                }}
+                className={`inline-block px-2 py-0.5 rounded-full font-bold text-black ${team.color} whitespace-nowrap ${
+                  teams.length > 1 ? 'text-[10px]' : 'text-xs'
+                }`}
               >
                 {team.name}
-              </div>
+              </span>
             ))}
           </div>
         )}
@@ -271,3 +275,18 @@ export default function RaceBoard({ game, isDark, myTeam, isAdmin = false }: Rac
     </>
   );
 }
+
+export default memo(RaceBoard, (prevProps, nextProps) => {
+  // Only re-render if relevant game state has changed
+  return (
+    prevProps.isDark === nextProps.isDark &&
+    prevProps.myTeam?.id === nextProps.myTeam?.id &&
+    prevProps.myTeam?.pos === nextProps.myTeam?.pos &&
+    prevProps.isAdmin === nextProps.isAdmin &&
+    prevProps.game.raceTiles === nextProps.game.raceTiles &&
+    prevProps.game.revealedTiles === nextProps.game.revealedTiles &&
+    prevProps.game.fogOfWarDisabled === nextProps.game.fogOfWarDisabled &&
+    JSON.stringify(prevProps.game.teams.map(t => ({ id: t.id, pos: t.pos, name: t.name }))) === 
+    JSON.stringify(nextProps.game.teams.map(t => ({ id: t.id, pos: t.pos, name: t.name })))
+  );
+});

@@ -12,10 +12,10 @@ const SESSION_KEY = "tilerace_team_session";
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
- * Hook for managing team session with sessionStorage
- * - Persists team login across page refreshes
+ * Hook for managing team session with localStorage (persistent across tabs/refreshes)
+ * - Persists team login across page refreshes and browser restarts
  * - Automatically clears after 24 hours
- * - Session-only (not shared across tabs)
+ * - Shared across tabs for better UX
  */
 export function useTeamSession(allTeams: Team[]) {
   const [myTeam, setMyTeam] = useState<Team | null>(null);
@@ -26,7 +26,7 @@ export function useTeamSession(allTeams: Team[]) {
     if (typeof window === "undefined") return;
 
     try {
-      const stored = sessionStorage.getItem(SESSION_KEY);
+      const stored = localStorage.getItem(SESSION_KEY);
       if (stored) {
         const session: TeamSession = JSON.parse(stored);
         const now = Date.now();
@@ -38,16 +38,16 @@ export function useTeamSession(allTeams: Team[]) {
             setMyTeam(team);
           } else {
             // Team no longer exists, clear session
-            sessionStorage.removeItem(SESSION_KEY);
+            localStorage.removeItem(SESSION_KEY);
           }
         } else {
           // Session expired
-          sessionStorage.removeItem(SESSION_KEY);
+          localStorage.removeItem(SESSION_KEY);
         }
       }
     } catch (err) {
       console.error("Failed to restore team session:", err);
-      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
     }
 
     setIsRestoring(false);
@@ -64,9 +64,9 @@ export function useTeamSession(allTeams: Team[]) {
         teamId: team.id,
         timestamp: Date.now(),
       };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     } else {
-      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
     }
   };
 

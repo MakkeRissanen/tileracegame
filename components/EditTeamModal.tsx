@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal, Button, inputClass } from "./ui";
-import { Team, POWERUP_DEFS } from "@/types/game";
+import { Team, GameState, POWERUP_DEFS } from "@/types/game";
 
 interface EditTeamModalProps {
   isOpen: boolean;
   isDark: boolean;
   team: Team;
+  game: GameState;
   onClose: () => void;
   onUpdateTeam: (teamId: string, updates: Partial<Team>) => void;
 }
@@ -16,9 +17,11 @@ export default function EditTeamModal({
   isOpen,
   isDark,
   team,
+  game,
   onClose,
   onUpdateTeam,
 }: EditTeamModalProps) {
+  const [teamName, setTeamName] = useState(team.name);
   const [members, setMembers] = useState<string[]>(team.members || []);
   const [captain, setCaptain] = useState(team.captain || "");
   const [newMember, setNewMember] = useState("");
@@ -26,6 +29,20 @@ export default function EditTeamModal({
   const [playerPoints, setPlayerPoints] = useState<Record<string, number>>(team.playerPoints || {});
   const [inventory, setInventory] = useState<string[]>(team.inventory || []);
   const [selectedPowerup, setSelectedPowerup] = useState("");
+
+  // Sync state with team prop whenever modal opens or team changes
+  useEffect(() => {
+    if (isOpen) {
+      setTeamName(team.name);
+      setMembers(team.members || []);
+      setCaptain(team.captain || "");
+      setPosition(team.pos.toString());
+      setPlayerPoints(team.playerPoints || {});
+      setInventory(team.inventory || []);
+      setNewMember("");
+      setSelectedPowerup("");
+    }
+  }, [isOpen, team]);
 
   const handleAddMember = () => {
     if (newMember.trim() && !members.includes(newMember.trim())) {
@@ -67,6 +84,7 @@ export default function EditTeamModal({
 
   const handleSave = () => {
     const updates: Partial<Team> = {
+      name: teamName,
       members,
       captain: captain || members[0] || "",
       pos: parseInt(position) || team.pos,
@@ -85,8 +103,22 @@ export default function EditTeamModal({
             Edit Team: {team.name}
           </h2>
           <p className={`mt-2 text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-            Modify team members, captain, position, powerups, and player points
+            Modify team name, members, captain, position, powerups, and player points
           </p>
+        </div>
+
+        {/* Team Name */}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+            Team Name
+          </label>
+          <input
+            type="text"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            className={inputClass(isDark)}
+            placeholder="Enter team name"
+          />
         </div>
 
         {/* Team Position */}

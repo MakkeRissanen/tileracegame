@@ -64,6 +64,19 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 Game Overview
               </h2>
               
+              {/* CRITICAL RULE - Proof Requirement */}
+              <div className="bg-red-900/20 border-4 border-red-600 rounded-lg p-6 my-4">
+                <p className="text-red-600 dark:text-red-400 font-black text-2xl text-center leading-tight">
+                  ⚠️ MANDATORY REQUIREMENT ⚠️
+                </p>
+                <p className="text-red-600 dark:text-red-400 font-bold text-xl text-center mt-3 leading-snug">
+                  EVERY TIME YOU COMPLETE A TILE OR OBTAIN A POWERUP, YOU MUST POST A PROOF PICTURE OF THE COMPLETED TASK IN DISCORD!
+                </p>
+                <p className="text-red-500 dark:text-red-400 font-semibold text-lg text-center mt-2">
+                  NO PROOF = NO COMPLETION
+                </p>
+              </div>
+              
               <section>
                 <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
                   Objective

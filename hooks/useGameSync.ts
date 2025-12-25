@@ -21,6 +21,8 @@ export function useGameSync(gameId: string = "main") {
   const eventQueue = useRef<Array<{ event: GameEvent; resolve: () => void; reject: (err: Error) => void }>>([]); 
   const processingEvent = useRef(false);
   const isInitialized = useRef(false);
+  const optimisticState = useRef<GameState | null>(null);
+  const lastServerTimestamp = useRef<number>(0);
 
   // Load game state from Firebase
   useEffect(() => {
@@ -30,7 +32,12 @@ export function useGameSync(gameId: string = "main") {
       try {
         const data = snapshot.val();
         if (data) {
-          setGame(data);
+          // Only update if we don't have a pending optimistic update
+          // or if this is clearly a newer server state
+          if (!optimisticState.current || processingEvent.current === false) {
+            setGame(data);
+            lastServerTimestamp.current = Date.now();
+          }
           isInitialized.current = true;
         } else if (!isInitialized.current) {
           // Initialize game if it doesn't exist
@@ -76,6 +83,9 @@ export function useGameSync(gameId: string = "main") {
     try {
       const gameRef = ref(database, `games/${gameId}`);
       
+      // Apply optimistic update immediately
+      let optimisticNewState: GameState | null = null;
+      
       // Use Firebase transaction for atomic operation
       const result = await runTransaction(gameRef, (currentData) => {
         if (currentData === null) {
@@ -94,16 +104,26 @@ export function useGameSync(gameId: string = "main") {
 
         // Apply event to current state
         const newState = applyEvent(currentData, event);
+        optimisticNewState = newState;
         return newState;
       }, {
-        applyLocally: true, // Update local state immediately
+        applyLocally: false, // Don't let Firebase apply locally - we'll do it manually
       });
 
-      if (result.committed) {
-        // Transaction succeeded
+      if (result.committed && optimisticNewState) {
+        // Transaction succeeded - apply optimistic update
+        optimisticState.current = optimisticNewState;
+        setGame(optimisticNewState);
+        
+        // Clear optimistic state after a short delay to allow server sync
+        setTimeout(() => {
+          optimisticState.current = null;
+        }, 100);
+        
         resolve();
       } else {
         // Transaction aborted (validation failed or conflict)
+        optimisticState.current = null;
         reject(new Error(validationReason || "Event validation failed or conflict detected"));
       }
 
@@ -117,6 +137,7 @@ export function useGameSync(gameId: string = "main") {
       }
     } catch (err) {
       console.error("Failed to process event:", err);
+      optimisticState.current = null;
       reject(err as Error);
       eventQueue.current.shift();
       processingEvent.current = false;

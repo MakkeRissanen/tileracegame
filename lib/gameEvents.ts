@@ -183,10 +183,33 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           );
         }
 
+        // Calculate points first (before modifying state)
+        const diff = tileDiff(game, completedTile);
+        const doubledTilesInfoScoring = game.doubledTilesInfo || {};
+        const isDoubledWithDiffPoints =
+          doubledTilesInfoScoring[completedTile]?.useDifficultyPoints || false;
+        const isMultiCompletion = Math.max(1, Number(rt.maxCompletions || 1)) > 1;
+        const pointsForDiff =
+          isMultiCompletion && !isDoubledWithDiffPoints
+            ? 1
+            : diff === 1
+            ? 1
+            : diff === 2
+            ? 2
+            : 3;
+
         const nextPos = simulateAdvance(team, 1);
-        const teams = game.teams.map((t) =>
-          t.id === event.teamId ? { ...t, pos: nextPos, powerupCooldown: false } : t
-        );
+        const teams = game.teams.map((t) => {
+          if (t.id === event.teamId) {
+            // Update team's player points for this completion
+            const updatedPlayerPoints = { ...(t.playerPoints || {}) };
+            playerNames.forEach((playerName) => {
+              updatedPlayerPoints[playerName] = (updatedPlayerPoints[playerName] || 0) + pointsForDiff;
+            });
+            return { ...t, pos: nextPos, powerupCooldown: false, playerPoints: updatedPlayerPoints };
+          }
+          return t;
+        });
         let next = { ...game, teams };
 
         // Update revealed tiles based on dynamic vision
@@ -236,28 +259,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
 
         const rewardRes = maybeGrantMainTileReward(next, event.teamId, completedTile);
         next = rewardRes.game;
-
-        // Scoring
-        const diff = tileDiff(game, completedTile);
-        const rtScoring = getRaceTile(next, completedTile);
-        const doubledTilesInfoScoring = next.doubledTilesInfo || {};
-        const isDoubledWithDiffPoints =
-          doubledTilesInfoScoring[completedTile]?.useDifficultyPoints || false;
-        const isMultiCompletion = Math.max(1, Number(rtScoring.maxCompletions || 1)) > 1;
-        const pointsForDiff =
-          isMultiCompletion && !isDoubledWithDiffPoints
-            ? 1
-            : diff === 1
-            ? 1
-            : diff === 2
-            ? 2
-            : 3;
-
-        const playerPoints = { ...(next.playerPoints || {}) };
-        playerNames.forEach((playerName) => {
-          playerPoints[playerName] = (playerPoints[playerName] || 0) + pointsForDiff;
-        });
-        next = { ...next, playerPoints };
 
         const playersText = playerNames.join(", ");
         const totalPoints = pointsForDiff * playerNames.length;
