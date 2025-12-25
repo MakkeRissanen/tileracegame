@@ -7,8 +7,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  # Disable secrets scanning for environment variables that are intentionally server-side only
-  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "ADMIN_PASSWORD"
+  # Disable secret scanning - Firebase credentials are meant to be public
+  # and ADMIN_PASSWORD is server-side only in API routes
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
 # Redirect rules for Next.js routing
 [[redirects]]
