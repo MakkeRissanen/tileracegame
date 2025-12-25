@@ -93,7 +93,7 @@ export function initialGame(): GameState {
       { 
         id: "master", 
         name: "Master Admin", 
-        password: process.env.ADMIN_PASSWORD || "admin123", 
+        password: "USE_API_ROUTE", // Password verification happens via API route
         isMaster: true 
       },
     ],

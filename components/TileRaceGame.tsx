@@ -322,11 +322,21 @@ export default function TileRaceGame() {
             game={game} 
             isDark={isDark} 
             onSelectTeam={handlers.handleSelectTeam}
-            onAdminLogin={(password) => {
-              if (password === "admin123") {
-                setIsAdmin(true);
-              } else {
-                alert("Incorrect admin password!");
+            onAdminLogin={async (password) => {
+              try {
+                const response = await fetch('/api/admin/verify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ password }),
+                });
+                const data = await response.json();
+                if (data.success) {
+                  setIsAdmin(true);
+                } else {
+                  alert("Incorrect admin password!");
+                }
+              } catch (error) {
+                alert("Error verifying password. Please try again.");
               }
             }}
           />
@@ -399,12 +409,22 @@ export default function TileRaceGame() {
           isOpen={showAdminLogin}
           isDark={isDark}
           onClose={() => setShowAdminLogin(false)}
-          onLogin={(password) => {
-            if (password === "admin123") {
-              setIsAdmin(true);
-              setShowAdminLogin(false);
-            } else {
-              alert("Incorrect admin password!");
+          onLogin={async (password) => {
+            try {
+              const response = await fetch('/api/admin/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password }),
+              });
+              const data = await response.json();
+              if (data.success) {
+                setIsAdmin(true);
+                setShowAdminLogin(false);
+              } else {
+                alert("Incorrect admin password!");
+              }
+            } catch (error) {
+              alert("Error verifying password. Please try again.");
             }
           }}
         />
