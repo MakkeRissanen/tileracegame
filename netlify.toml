@@ -7,6 +7,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Disable secrets scanning for environment variables that are intentionally server-side only
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "ADMIN_PASSWORD"
 
 # Redirect rules for Next.js routing
 [[redirects]]
