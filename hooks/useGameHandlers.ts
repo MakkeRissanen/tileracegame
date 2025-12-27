@@ -38,12 +38,13 @@ export function useGameHandlers({
     }
   }, [logout]);
 
-  const handleCompleteTile = useCallback(async (teamId: string, playerNames: string[]) => {
+  const handleCompleteTile = useCallback(async (teamId: string, playerNames: string[], adminName?: string) => {
     try {
       await dispatch({
         type: "COMPLETE_TILE",
         teamId,
         playerNames,
+        ...(adminName && { adminName }),
       });
     } catch (err) {
       alert(`Failed to complete tile: ${err instanceof Error ? err.message : "Unknown error"}`);

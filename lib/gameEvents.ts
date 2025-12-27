@@ -155,7 +155,9 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           const team = ensureTeam(name, i);
           // Update members/captain
           nextTeams = nextTeams.map((t) =>
-            t.id === team.id ? { ...t, members: pt.members || [], captain: pt.captain || "" } : t
+            t.id === team.id 
+              ? { ...t, members: pt.members || [], captain: pt.captain || "" } 
+              : t
           );
         }
 
@@ -265,28 +267,32 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const isDoubledTile = doubledTilesInfoScoring[completedTile] ? true : false;
         const doubledText = isDoubledTile ? "doubled " : "";
 
+        // Format player completions as list with emojis
+        const playerCompletionsList = playerNames.map(p => `⭐ ${p} - ${pointsForDiff} pt${pointsForDiff !== 1 ? 's' : ''}`).join('\n');
+        
         if (completedTile === MAX_TILE) {
-          next = addLog(
-            next,
-            `🏆🎉 ${team.name} completed the ${doubledText}Final Tile! ${playersText} are the WINNERS! 🏆🎉 (+${pointsForDiff} pts each)${
-              rewardRes.granted ? ` ⚡ Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
-            }`
-          );
+          const message = event.adminName 
+            ? `[${event.adminName}]\n${team.name} completed the ${doubledText}Final Tile!\n🏆🎉 WINNERS! 🏆🎉\n${playerCompletionsList}${
+                rewardRes.granted ? `\n⚡ Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
+              }`
+            : `🏆🎉 ${team.name} completed the ${doubledText}Final Tile! WINNERS! 🏆🎉\n${playerCompletionsList}${
+                rewardRes.granted ? `\n⚡ Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
+              }`;
+          next = addLog(next, message, event.adminName);
         } else if (nextPos === completedTile) {
-          next = addLog(
-            next,
-            `${team.name}, ${playersText} completed ${tileDesc(
-              next,
-              completedTile
-            )} (already at finish) +${pointsForDiff} pts each → Current: ${tileDesc(next, nextPos)}`
-          );
+          const message = event.adminName
+            ? `[${event.adminName}]\n${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`
+            : `${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`;
+          next = addLog(next, message, event.adminName);
         } else {
-          const baseMessage = `${team.name}, ${playersText} completed ${doubledText}Tile ${completedTile}: "${completedLabel}" (+${pointsForDiff} pts each) → Current: ${tileDesc(next, nextPos)}`;
-          const rewardMessage = rewardRes.granted ? `${team.name} gained ${powerupLabel(rewardRes.granted)}` : "";
+          const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
+          const baseMessage = `${adminPrefix}${team.name} completed ${doubledText}Tile ${completedTile}:\n"${completedLabel}"\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`;
+          const rewardMessage = rewardRes.granted ? `⚡ ${team.name} gained ${powerupLabel(rewardRes.granted)}` : "";
           
           next = addLog(
             next,
-            rewardMessage ? `${baseMessage}\n${rewardMessage}` : baseMessage
+            rewardMessage ? `${baseMessage}\n${rewardMessage}` : baseMessage,
+            event.adminName
           );
         }
         return next;
@@ -378,11 +384,13 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         });
 
         let next = { ...game, teams, playerPoints };
-        const playerList = playerNames.join(", ");
         const powerupName = powerupLabel(tile.rewardPowerupId);
+        const playerCompletionsList = playerNames.map(p => `⭐ ${p} - ${pointsPerCompletion} pt${pointsPerCompletion !== 1 ? 's' : ''}`).join('\n');
+        const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
         next = addLog(
           next,
-          `${team.name} gained ${powerupName}\n${playerList} completed "${tile.label}" (+${pointsPerCompletion} pts each)`
+          `${adminPrefix}${team.name} gained ${powerupName}\nCompleted "${tile.label}"\n${playerCompletionsList}`,
+          event.adminName
         );
         return next;
       }

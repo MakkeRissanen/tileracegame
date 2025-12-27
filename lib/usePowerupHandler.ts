@@ -39,9 +39,10 @@ export function handleUsePowerup(
     futureTile?: string;
     changeTaskId?: string;
     targetPowerupId?: string;
+    adminName?: string;
   }
 ): GameState {
-  const { teamId, powerupId, targetId, futureTile, changeTaskId, targetPowerupId } = event;
+  const { teamId, powerupId, targetId, futureTile, changeTaskId, targetPowerupId, adminName } = event;
   const team = game.teams.find((t) => t.id === teamId);
   if (!team) return game;
   if (!(team.inventory || []).includes(powerupId)) {
@@ -75,12 +76,14 @@ export function handleUsePowerup(
     let next = consumePowerup(game, teamId, powerupId);
     const teams = next.teams.map((t) => (t.id === teamId ? { ...t, pos: dest } : t));
     next = { ...next, teams };
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(powerupId)} (from ${tileDesc(
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} (from ${tileDesc(
         next,
         before
-      )} → Current: ${tileDesc(next, dest)})`
+      )} → Current: ${tileDesc(next, dest)})`,
+      adminName
     );
     return next;
   }
@@ -102,12 +105,14 @@ export function handleUsePowerup(
       t.id === target.id ? { ...t, pos: dest, powerupCooldown: true } : t
     );
     next = { ...next, teams };
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(powerupId)} on ${target.name} (from ${tileDesc(
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on ${target.name} (from ${tileDesc(
         next,
         before
-      )} → Current: ${tileDesc(next, dest)})`
+      )} → Current: ${tileDesc(next, dest)})`,
+      adminName
     );
     return next;
   }
@@ -178,14 +183,16 @@ export function handleUsePowerup(
     );
     
     next = { ...next, raceTiles, teams, copyPasteTiles };
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(
+      `${adminPrefix}${team.name} used ${powerupLabel(
         powerupId
       )} (Tile ${tileN}: "${beforeLabel}" → "${sourceTile.label}" from ${tileDesc(
         next,
         team.pos
-      )}).`
+      )})`,
+      adminName
     );
     return next;
   }
@@ -260,11 +267,13 @@ export function handleUsePowerup(
     );
 
     next = { ...next, raceTiles, usedPoolTaskIds, changedTiles: changedTilesArr };
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(powerupId)} on Tile ${tileN} (D${diff}) → "${beforeLabel}" → "${
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on Tile ${tileN} (D${diff}) → "${beforeLabel}" → "${
         chosen.label
-      }".`
+      }"`,
+      adminName
     );
     return next;
   }
@@ -276,9 +285,11 @@ export function handleUsePowerup(
       t.id === teamId ? { ...t, powerupCooldown: false } : t
     );
     next = { ...next, teams };
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(powerupId)} → cooldown cleared.`
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} → cooldown cleared`,
+      adminName
     );
     return next;
   }
@@ -307,11 +318,13 @@ export function handleUsePowerup(
       return { ...t, inventory: nextInv };
     });
     next = { ...next, teams };
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(powerupId)} on ${
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on ${
         target.name
-      } → removed ${powerupLabel(targetPowerupId)}.`
+      } → removed ${powerupLabel(targetPowerupId)}`,
+      adminName
     );
     return next;
   }
@@ -327,11 +340,13 @@ export function handleUsePowerup(
       return { ...t, inventory: [...(t.inventory || []), targetPowerupId] };
     });
     next = { ...next, teams };
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(powerupId)} → doubled ${powerupLabel(
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} → doubled ${powerupLabel(
         targetPowerupId
-      )}.`
+      )}`,
+      adminName
     );
     return next;
   }
@@ -408,14 +423,16 @@ export function handleUsePowerup(
       doubledTilesInfo: newDoubledTilesInfo,
     };
     const updatedTile = raceTiles.find((t) => t.n === tileN);
+    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${team.name} used ${powerupLabel(powerupId)} on ${tileDesc(
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on ${tileDesc(
         next,
         tileN
       )} → requirement doubled to ${updatedTile?.maxCompletions} (min: ${
         updatedTile?.minCompletions
-      }).`
+      })`,
+      adminName
     );
     return next;
   }

@@ -14,7 +14,8 @@ interface MainGameLayoutProps {
   isDark: boolean;
   myTeam: Team | null;
   isAdmin: boolean;
-  onCompleteTile: (teamId: string, playerNames: string[]) => void;
+  adminName?: string;
+  onCompleteTile: (teamId: string, playerNames: string[], adminName?: string) => void;
   onUsePowerup: () => void;
   onClaimPowerup: (tileId: number) => void;
   onOpenClaimPowerup: (teamId: string) => void;
@@ -32,6 +33,7 @@ export default function MainGameLayout({
   isDark,
   myTeam,
   isAdmin,
+  adminName,
   onCompleteTile,
   onUsePowerup,
   onClaimPowerup,
@@ -54,6 +56,7 @@ export default function MainGameLayout({
             isDark={isDark}
             myTeam={myTeam}
             isAdmin={isAdmin}
+            adminName={adminName}
             onCompleteTile={onCompleteTile}
             onUsePowerup={onUsePowerup}
             onClaimPowerup={onClaimPowerup}
@@ -75,7 +78,7 @@ export default function MainGameLayout({
           </div>
           
           {/* Current Tile */}
-          <GameBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} onCompleteTile={onCompleteTile} />
+          <GameBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} adminName={adminName || undefined} onCompleteTile={onCompleteTile} />
         </div>
       </div>
 

@@ -9,6 +9,7 @@ interface EditTeamModalProps {
   isDark: boolean;
   team: Team;
   game: GameState;
+  isMasterAdmin?: boolean;
   onClose: () => void;
   onUpdateTeam: (teamId: string, updates: Partial<Team>) => void;
 }
@@ -18,6 +19,7 @@ export default function EditTeamModal({
   isDark,
   team,
   game,
+  isMasterAdmin = false,
   onClose,
   onUpdateTeam,
 }: EditTeamModalProps) {
@@ -29,6 +31,7 @@ export default function EditTeamModal({
   const [playerPoints, setPlayerPoints] = useState<Record<string, number>>(team.playerPoints || {});
   const [inventory, setInventory] = useState<string[]>(team.inventory || []);
   const [selectedPowerup, setSelectedPowerup] = useState("");
+  const [webhookSlot, setWebhookSlot] = useState<number | null>(team.discordWebhookSlot ?? null);
 
   // Sync state with team prop whenever modal opens or team changes
   useEffect(() => {
@@ -39,6 +42,7 @@ export default function EditTeamModal({
       setPosition(team.pos.toString());
       setPlayerPoints(team.playerPoints || {});
       setInventory(team.inventory || []);
+      setWebhookSlot(team.discordWebhookSlot ?? null);
       setNewMember("");
       setSelectedPowerup("");
     }
@@ -90,6 +94,7 @@ export default function EditTeamModal({
       pos: parseInt(position) || team.pos,
       playerPoints,
       inventory,
+      discordWebhookSlot: webhookSlot,
     };
     onUpdateTeam(team.id, updates);
     onClose();
@@ -135,6 +140,30 @@ export default function EditTeamModal({
             className={inputClass(isDark)}
           />
         </div>
+
+        {/* Discord Webhook (Master Admin Only) */}
+        {isMasterAdmin && (
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+              Discord Channel
+            </label>
+            <select
+              value={webhookSlot ?? ""}
+              onChange={(e) => setWebhookSlot(e.target.value === "" ? null : parseInt(e.target.value))}
+              className={inputClass(isDark)}
+            >
+              <option value="">No Discord</option>
+              <option value="1">Channel 1</option>
+              <option value="2">Channel 2</option>
+              <option value="3">Channel 3</option>
+              <option value="4">Channel 4</option>
+              <option value="5">Channel 5</option>
+            </select>
+            <p className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              Assign this team to a Discord webhook channel (1-5)
+            </p>
+          </div>
+        )}
 
         {/* Powerup Inventory */}
         <div>

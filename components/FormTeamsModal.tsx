@@ -238,7 +238,7 @@ export default function FormTeamsModal({
                   .filter(Boolean)
                   .map((tn) => (
                     <div key={tn} className="flex items-center gap-2">
-                      <div className="w-40 text-sm">{tn}</div>
+                      <div className="w-32 text-sm">{tn}</div>
                       <input
                         value={draft.captains[tn] || ""}
                         onChange={(e) => setDraft((d) => ({ ...d, captains: { ...d.captains, [tn]: e.target.value } }))}

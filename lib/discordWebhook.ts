@@ -9,8 +9,17 @@ import { GameEvent, GameState, POWERUP_DEFS } from "@/types/game";
 const DISCORD_WEBHOOK_URL = process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_URL;
 const DISCORD_TEAM_WEBHOOKS = process.env.NEXT_PUBLIC_DISCORD_TEAM_WEBHOOKS;
 
+// Numbered webhook slots (1-5)
+const DISCORD_WEBHOOK_SLOTS = {
+  1: process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_1,
+  2: process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_2,
+  3: process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_3,
+  4: process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_4,
+  5: process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_5,
+};
+
 /**
- * Parse team webhooks from environment variable
+ * Parse team webhooks from environment variable (legacy format)
  * Format: "TeamName1:webhook_url1,TeamName2:webhook_url2"
  */
 function parseTeamWebhooks(): Map<string, string> {
@@ -22,9 +31,14 @@ function parseTeamWebhooks(): Map<string, string> {
   
   const pairs = DISCORD_TEAM_WEBHOOKS.split(',');
   for (const pair of pairs) {
-    const [teamName, webhookUrl] = pair.split(':');
+    const colonIndex = pair.indexOf(':');
+    if (colonIndex === -1) continue;
+    
+    const teamName = pair.substring(0, colonIndex).trim();
+    const webhookUrl = pair.substring(colonIndex + 1).trim();
+    
     if (teamName && webhookUrl) {
-      webhooks.set(teamName.trim().toLowerCase(), webhookUrl.trim());
+      webhooks.set(teamName.toLowerCase(), webhookUrl);
     }
   }
   
@@ -88,15 +102,13 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
   switch (event.type) {
     case "COMPLETE_TILE":
       const teamName = getTeamName(event.teamId);
-      title = "✅ Task Completed";
       
-      // Check if admin action (no player names)
-      const isAdminComplete = !event.playerNames || event.playerNames.length === 0;
+      // Check if admin action
+      const isAdminComplete = event.adminName !== undefined;
       if (isAdminComplete) {
-        description = `**${teamName}** completed a task *(Admin action)*`;
+        title = `[${event.adminName}] ${teamName} completed a task`;
       } else {
-        description = `**${teamName}** completed a task`;
-        fields.push({ name: "Players", value: event.playerNames.join(", "), inline: false });
+        title = `${teamName} completed a task`;
       }
       
       // Add tile position if available from game state
@@ -106,8 +118,21 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
           const tile = gameState.raceTiles.find(t => t.n === team.pos - 1);
           if (tile) {
             fields.push({ name: "Tile", value: `#${team.pos - 1} - ${tile.label}`, inline: false });
-            const difficulty = tile.difficulty === 1 ? "Easy" : tile.difficulty === 2 ? "Medium" : "Hard";
-            fields.push({ name: "Difficulty", value: difficulty, inline: true });
+            
+            // Calculate points using same logic as game
+            const isMultiCompletion = Math.max(1, Number(tile.maxCompletions || 1)) > 1;
+            const doubledTilesInfo = gameState.doubledTilesInfo || {};
+            const isDoubledWithDiffPoints = doubledTilesInfo[team.pos - 1]?.useDifficultyPoints || false;
+            
+            const points = (isMultiCompletion && !isDoubledWithDiffPoints) 
+              ? 1 
+              : tile.difficulty === 1 ? 1 : tile.difficulty === 2 ? 2 : 3;
+            
+            // Format player completions as list
+            if (event.playerNames && event.playerNames.length > 0) {
+              const playersList = event.playerNames.map(p => `• ${p} - ${points} pt${points !== 1 ? 's' : ''}`).join('\n');
+              fields.push({ name: "Completions", value: playersList, inline: false });
+            }
           }
           fields.push({ name: "New Position", value: `Tile ${team.pos}`, inline: true });
         }
@@ -116,15 +141,13 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
       
     case "CLAIM_POWERUP_TILE":
       const claimTeamName = getTeamName(event.teamId);
-      title = "🎁 Powerup Claimed";
       
       // Check if admin action (no player names)
       const isAdminClaim = !event.playerNames || event.playerNames.length === 0;
       if (isAdminClaim) {
-        description = `**${claimTeamName}** claimed a powerup tile *(Admin action)*`;
+        title = `[Admin] ${claimTeamName} claimed a powerup tile`;
       } else {
-        description = `**${claimTeamName}** claimed a powerup tile`;
-        fields.push({ name: "Players", value: event.playerNames.join(", "), inline: false });
+        title = `${claimTeamName} claimed a powerup tile`;
       }
       
       // Get powerup tile details
@@ -133,6 +156,10 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
         if (powerupTile) {
           fields.push({ name: "Powerup", value: getPowerupName(powerupTile.rewardPowerupId), inline: false });
           fields.push({ name: "Task", value: powerupTile.label, inline: false });
+          if (powerupTile.pointsPerCompletion > 0 && event.playerNames && event.playerNames.length > 0) {
+            const playersList = event.playerNames.map(p => `• ${p} - ${powerupTile.pointsPerCompletion} pt${powerupTile.pointsPerCompletion !== 1 ? 's' : ''}`).join('\n');
+            fields.push({ name: "Completions", value: playersList, inline: false });
+          }
         }
       }
       break;
@@ -178,6 +205,46 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
     case "ADMIN_UNDO":
       title = "↩️ Undo";
       description = "Admin undid the last action";
+      break;
+      
+    case "ADMIN_UPDATE_TEAM":
+      const updatedTeamName = getTeamName(event.teamId);
+      title = "✏️ Team Updated";
+      
+      // Build change description matching event log format
+      const changes: string[] = [];
+      if (gameState) {
+        const oldTeam = gameState.teams.find(t => t.id === event.teamId);
+        if (oldTeam && event.updates) {
+          for (const [key, newValue] of Object.entries(event.updates)) {
+            const oldValue = (oldTeam as any)[key];
+            if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+              if (key === "inventory") {
+                const oldLen = Array.isArray(oldValue) ? oldValue.length : 0;
+                const newLen = Array.isArray(newValue) ? (newValue as any[]).length : 0;
+                changes.push(`inventory: ${oldLen} items → ${newLen} items`);
+              } else if (key === "pos") {
+                changes.push(`position: ${oldValue} → ${newValue}`);
+              } else if (key === "powerupCooldown") {
+                changes.push(`cooldown: ${oldValue ? "ON" : "OFF"} → ${newValue ? "ON" : "OFF"}`);
+              } else if (key === "discordWebhookSlot") {
+                const oldSlot = oldValue === null || oldValue === undefined ? "None" : `Channel ${oldValue}`;
+                const newSlot = newValue === null || newValue === undefined ? "None" : `Channel ${newValue}`;
+                changes.push(`discord: ${oldSlot} → ${newSlot}`);
+              } else if (key === "members") {
+                const oldMembers = Array.isArray(oldValue) ? oldValue : [];
+                const newMembers = Array.isArray(newValue) ? newValue : [];
+                changes.push(`members: [${oldMembers.join(", ")}] → [${newMembers.join(", ")}]`);
+              } else {
+                changes.push(`${key}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+              }
+            }
+          }
+        }
+      }
+      
+      const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
+      description = `Admin updated team **${updatedTeamName}**${changeDesc}`;
       break;
       
     default:
@@ -262,21 +329,21 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
   
   const embed = eventToEmbed(event, gameState);
   
-  // Collect all affected team names
-  const affectedTeamNames = new Set<string>();
+  // Collect all affected teams
+  const affectedTeams = new Set<{ name: string; slot?: number | null }>();
   
-  // Get primary team name (the team performing the action)
+  // Get primary team (the team performing the action)
   if ('name' in event && event.name) {
-    affectedTeamNames.add(event.name);
+    affectedTeams.add({ name: event.name, slot: null });
   } else if ('teamId' in event && event.teamId && gameState) {
     const team = gameState.teams.find(t => t.id === event.teamId);
-    if (team) affectedTeamNames.add(team.name);
+    if (team) affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
   }
   
   // For targeted powerups, also notify the target team
   if (event.type === 'USE_POWERUP' && 'targetId' in event && event.targetId && gameState) {
     const targetTeam = gameState.teams.find(t => t.id === event.targetId);
-    if (targetTeam) affectedTeamNames.add(targetTeam.name);
+    if (targetTeam) affectedTeams.add({ name: targetTeam.name, slot: targetTeam.discordWebhookSlot });
   }
   
   // Send to main channel if configured
@@ -284,12 +351,23 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
     await sendToWebhook(DISCORD_WEBHOOK_URL, embed);
   }
   
-  // Send to all affected team-specific channels with team mention
-  if (affectedTeamNames.size > 0 && teamWebhooks.size > 0) {
-    for (const teamName of affectedTeamNames) {
-      const teamWebhookUrl = teamWebhooks.get(teamName.toLowerCase());
+  // Send to team-specific channels
+  if (affectedTeams.size > 0) {
+    for (const team of affectedTeams) {
+      let teamWebhookUrl: string | undefined;
+      
+      // Priority 1: Use numbered slot if assigned
+      if (team.slot && team.slot >= 1 && team.slot <= 5) {
+        teamWebhookUrl = DISCORD_WEBHOOK_SLOTS[team.slot as keyof typeof DISCORD_WEBHOOK_SLOTS];
+      }
+      
+      // Priority 2: Fall back to legacy name-based mapping
+      if (!teamWebhookUrl && teamWebhooks.size > 0) {
+        teamWebhookUrl = teamWebhooks.get(team.name.toLowerCase());
+      }
+      
       if (teamWebhookUrl) {
-        const mention = `@${teamName}`;
+        const mention = `@${team.name}`;
         await sendToWebhook(teamWebhookUrl, embed, mention);
       }
     }

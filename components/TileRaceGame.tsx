@@ -398,6 +398,7 @@ export default function TileRaceGame() {
             isDark={isDark}
             myTeam={null}
             isAdmin={isAdmin}
+            adminName={adminName || undefined}
             onCompleteTile={handlers.handleCompleteTile}
             onUsePowerup={handleOpenUsePowerup}
             onClaimPowerup={handleClaimPowerupFromBoard}
@@ -419,6 +420,7 @@ export default function TileRaceGame() {
             isDark={isDark}
             myTeam={myTeam}
             isAdmin={isAdmin}
+            adminName={adminName || undefined}
             onCompleteTile={handlers.handleCompleteTile}
             onUsePowerup={handleOpenUsePowerup}
             onClaimPowerup={handleClaimPowerupFromBoard}
@@ -591,6 +593,7 @@ export default function TileRaceGame() {
               isDark={isDark}
               team={team}
               game={game}
+              isMasterAdmin={isMasterAdmin}
               onClose={() => setEditingTeamId(null)}
               onUpdateTeam={handleUpdateTeam}
             />

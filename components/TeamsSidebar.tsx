@@ -10,7 +10,8 @@ interface TeamsSidebarProps {
   isDark: boolean;
   myTeam: Team | null;
   isAdmin?: boolean;
-  onCompleteTile: (teamId: string, playerNames: string[]) => void;
+  adminName?: string;
+  onCompleteTile: (teamId: string, playerNames: string[], adminName?: string) => void;
   onUsePowerup: () => void;
   onClaimPowerup?: (tileId: number) => void;
   onOpenClaimPowerup?: (teamId: string) => void;
@@ -25,6 +26,7 @@ function TeamsSidebar({
   isDark,
   myTeam,
   isAdmin = false,
+  adminName,
   onCompleteTile,
   onUsePowerup,
   onClaimPowerup,
@@ -92,7 +94,7 @@ function TeamsSidebar({
     }
     
     if (playerNames.length > 0) {
-      onCompleteTile(activeTeamId, playerNames);
+      onCompleteTile(activeTeamId, playerNames, isAdmin ? (adminName || "Admin") : undefined);
       setShowPlayerModal(false);
       setActiveTeamId(null);
       setPlayerCompletions({});

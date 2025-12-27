@@ -51,6 +51,7 @@ export interface Team {
   playerPoints: Record<string, number>;
   powerupCooldown: boolean;
   password: string | null;
+  discordWebhookSlot?: number | null; // 1-5 for numbered webhook slots
 }
 
 export interface Admin {
@@ -120,13 +121,14 @@ export type GameEvent =
   | { type: "RESET_ALL" }
   | { type: "ADD_TEAM"; name: string; adminName?: string }
   | { type: "REMOVE_TEAM"; teamId: string }
-  | { type: "COMPLETE_TILE"; teamId: string; playerNames: string[] }
+  | { type: "COMPLETE_TILE"; teamId: string; playerNames: string[]; adminName?: string }
   | { type: "USE_COPY_CHOICE"; teamId: string }
   | {
       type: "CLAIM_POWERUP_TILE";
       teamId: string;
       powerTileId: number;
       playerNames: string[];
+      adminName?: string;
     }
   | {
       type: "USE_POWERUP";

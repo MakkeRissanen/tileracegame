@@ -9,10 +9,11 @@ interface GameBoardProps {
   isDark: boolean;
   myTeam: Team | null;
   isAdmin?: boolean;
-  onCompleteTile: (teamId: string, playerNames: string[]) => void;
+  adminName?: string;
+  onCompleteTile: (teamId: string, playerNames: string[], adminName?: string) => void;
 }
 
-export default function GameBoard({ game, isDark, myTeam, isAdmin = false, onCompleteTile }: GameBoardProps) {
+export default function GameBoard({ game, isDark, myTeam, isAdmin = false, adminName, onCompleteTile }: GameBoardProps) {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [newPlayerName, setNewPlayerName] = useState("");
 
@@ -46,7 +47,7 @@ export default function GameBoard({ game, isDark, myTeam, isAdmin = false, onCom
 
   const handleComplete = () => {
     if (selectedPlayers.length > 0) {
-      onCompleteTile(myTeam.id, selectedPlayers);
+      onCompleteTile(myTeam.id, selectedPlayers, isAdmin ? (adminName || "Admin") : undefined);
       setSelectedPlayers([]);
       setNewPlayerName("");
     }
