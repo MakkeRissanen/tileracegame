@@ -92,7 +92,7 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
       let optimisticNewState: GameState | null = null;
       
       // Use Firebase transaction for atomic operation
-      const result = await runTransaction(gameRef, (currentData) => {
+      const result = await runTransaction(gameRef, (currentData): GameState | undefined => {
         if (currentData === null) {
           // Initialize if doesn't exist
           return initialGame();
@@ -120,8 +120,8 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
         optimisticState.current = optimisticNewState;
         setGame(optimisticNewState);
         
-        // Send event to Discord (async, non-blocking)
-        sendEventToDiscord(event).catch(err => 
+        // Send event to Discord (async, non-blocking) with game state for team name lookup
+        sendEventToDiscord(event, optimisticNewState as GameState).catch(err => 
           console.error("Discord webhook failed:", err)
         );
         

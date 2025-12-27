@@ -1,11 +1,37 @@
-import { GameEvent } from "@/types/game";
+import { GameEvent, GameState } from "@/types/game";
 
 /**
  * Discord webhook integration for game events
  * Sends formatted messages to Discord channel via webhook
+ * Supports both main channel and team-specific channels
  */
 
 const DISCORD_WEBHOOK_URL = process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_URL;
+const DISCORD_TEAM_WEBHOOKS = process.env.NEXT_PUBLIC_DISCORD_TEAM_WEBHOOKS;
+
+/**
+ * Parse team webhooks from environment variable
+ * Format: "TeamName1:webhook_url1,TeamName2:webhook_url2"
+ */
+function parseTeamWebhooks(): Map<string, string> {
+  const webhooks = new Map<string, string>();
+  
+  if (!DISCORD_TEAM_WEBHOOKS) {
+    return webhooks;
+  }
+  
+  const pairs = DISCORD_TEAM_WEBHOOKS.split(',');
+  for (const pair of pairs) {
+    const [teamName, webhookUrl] = pair.split(':');
+    if (teamName && webhookUrl) {
+      webhooks.set(teamName.trim().toLowerCase(), webhookUrl.trim());
+    }
+  }
+  
+  return webhooks;
+}
+
+const teamWebhooks = parseTeamWebhooks();
 
 interface DiscordEmbed {
   title?: string;
@@ -27,7 +53,7 @@ function eventToEmbed(event: GameEvent): DiscordEmbed {
   
   // Color scheme based on event type
   const colors: Record<string, number> = {
-    COMPLETE_TASK: 0x00ff00, // Green
+    COMPLETE_TILE: 0x00ff00, // Green
     CLAIM_POWERUP_TILE: 0xffaa00, // Orange
     USE_POWERUP: 0xff00ff, // Purple
     ADMIN_MOVE_TEAM: 0x0099ff, // Blue
@@ -47,48 +73,29 @@ function eventToEmbed(event: GameEvent): DiscordEmbed {
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
   
   switch (event.type) {
-    case "COMPLETE_TASK":
+    case "COMPLETE_TILE":
       title = "✅ Task Completed";
-      description = `**${event.teamName}** completed a task`;
-      if (event.playerName) fields.push({ name: "Player", value: event.playerName, inline: true });
-      if (event.taskDesc) fields.push({ name: "Task", value: event.taskDesc, inline: false });
-      if (event.rewardDesc) fields.push({ name: "Reward", value: event.rewardDesc, inline: false });
+      description = `**${event.teamId}** completed a task`;
+      if (event.playerNames && event.playerNames.length > 0) {
+        fields.push({ name: "Players", value: event.playerNames.join(", "), inline: false });
+      }
       break;
       
     case "CLAIM_POWERUP_TILE":
       title = "🎁 Powerup Claimed";
-      description = `**${event.teamName}** claimed a powerup tile`;
-      if (event.playerName) fields.push({ name: "Player", value: event.playerName, inline: true });
-      if (event.powerupLabel) fields.push({ name: "Powerup", value: event.powerupLabel, inline: false });
+      description = `A team claimed a powerup tile`;
+      if (event.playerNames && event.playerNames.length > 0) {
+        fields.push({ name: "Players", value: event.playerNames.join(", "), inline: false });
+      }
+      fields.push({ name: "Tile ID", value: String(event.powerTileId), inline: true });
       break;
       
     case "USE_POWERUP":
       title = "⚡ Powerup Used";
-      description = `**${event.teamName}** used a powerup`;
-      if (event.playerName) fields.push({ name: "Player", value: event.playerName, inline: true });
-      if (event.powerupLabel) fields.push({ name: "Powerup", value: event.powerupLabel, inline: false });
-      if (event.targetName) fields.push({ name: "Target", value: event.targetName, inline: true });
-      break;
-      
-    case "ADMIN_MOVE_TEAM":
-      title = "🎯 Admin Move";
-      description = `**${event.teamName}** was moved by admin`;
-      if (event.adminName) fields.push({ name: "Admin", value: event.adminName, inline: true });
-      if (event.oldPos !== undefined && event.newPos !== undefined) {
-        fields.push({ name: "Movement", value: `Tile ${event.oldPos} → Tile ${event.newPos}`, inline: false });
-      }
-      break;
-      
-    case "ADMIN_GRANT_POWERUP":
-      title = "🎁 Admin Grant";
-      description = `Admin granted a powerup to **${event.teamName}**`;
-      if (event.adminName) fields.push({ name: "Admin", value: event.adminName, inline: true });
-      if (event.powerupLabel) fields.push({ name: "Powerup", value: event.powerupLabel, inline: false });
-      break;
-      
-    case "VICTORY":
-      title = "🏆 VICTORY!";
-      description = `**${event.teamName}** has won the game!`;
+      description = `A team used a powerup`;
+      fields.push({ name: "Powerup ID", value: event.powerupId, inline: true });
+      if (event.targetId) fields.push({ name: "Target Team", value: event.targetId, inline: true });
+      if (event.futureTile) fields.push({ name: "Target Tile", value: String(event.futureTile), inline: true });
       break;
       
     case "ADD_TEAM":
@@ -97,16 +104,10 @@ function eventToEmbed(event: GameEvent): DiscordEmbed {
       if (event.adminName) fields.push({ name: "Admin", value: event.adminName, inline: true });
       break;
       
-    case "EDIT_TEAM":
-      title = "✏️ Team Edited";
-      description = `Team **${event.name}** was modified`;
-      if (event.adminName) fields.push({ name: "Admin", value: event.adminName, inline: true });
-      break;
-      
-    case "DELETE_TEAM":
-      title = "❌ Team Deleted";
-      description = `Team **${event.teamName}** was removed`;
-      if (event.adminName) fields.push({ name: "Admin", value: event.adminName, inline: true });
+    case "REMOVE_TEAM":
+      title = "❌ Team Removed";
+      description = `A team was removed`;
+      fields.push({ name: "Team ID", value: event.teamId, inline: true });
       break;
       
     case "RESET_ALL":
@@ -117,7 +118,6 @@ function eventToEmbed(event: GameEvent): DiscordEmbed {
     case "ADMIN_UNDO":
       title = "↩️ Undo";
       description = "Admin undid the last action";
-      if (event.adminName) fields.push({ name: "Admin", value: event.adminName, inline: true });
       break;
       
     default:
@@ -135,29 +135,36 @@ function eventToEmbed(event: GameEvent): DiscordEmbed {
 }
 
 /**
- * Send event to Discord webhook
+ * Get team name from event
  */
-export async function sendEventToDiscord(event: GameEvent): Promise<void> {
-  // Skip if webhook URL is not configured
-  if (!DISCORD_WEBHOOK_URL) {
-    return;
-  }
-  
-  // Skip certain events that are too noisy or not interesting
-  const skipEvents = ["ADMIN_UNDO"]; // Add more if needed
-  if (skipEvents.includes(event.type)) {
-    return;
-  }
-  
+function getTeamNameFromEvent(event: GameEvent): string | null {
+  // For events that reference a team by name
+  if ('name' in event && event.name) return event.name;
+  // For most other events, we'd need to look up the team by ID
+  // This would require passing the game state, which we don't have here
+  // So we'll return null and rely on team ID matching instead
+  return null;
+}
+
+/**
+ * Get team ID from event
+ */
+function getTeamIdFromEvent(event: GameEvent): string | null {
+  if ('teamId' in event && event.teamId) return event.teamId;
+  return null;
+}
+
+/**
+ * Send message to a Discord webhook
+ */
+async function sendToWebhook(webhookUrl: string, embed: DiscordEmbed): Promise<boolean> {
   try {
-    const embed = eventToEmbed(event);
-    
     const payload = {
       embeds: [embed],
       username: "TileRace Game Bot",
     };
     
-    const response = await fetch(DISCORD_WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -167,10 +174,49 @@ export async function sendEventToDiscord(event: GameEvent): Promise<void> {
     
     if (!response.ok) {
       console.error("Failed to send Discord webhook:", response.status, response.statusText);
+      return false;
     }
+    
+    return true;
   } catch (error) {
     console.error("Error sending Discord webhook:", error);
-    // Don't throw - we don't want Discord failures to break the game
+    return false;
+  }
+}
+
+/**
+ * Send event to Discord webhook(s)
+ * Will send to main channel and/or team-specific channel as appropriate
+ */
+export async function sendEventToDiscord(event: GameEvent, gameState?: GameState): Promise<void> {
+  // Skip certain events that are too noisy or not interesting
+  const skipEvents = ["ADMIN_UNDO"]; // Add more if needed
+  if (skipEvents.includes(event.type)) {
+    return;
+  }
+  
+  const embed = eventToEmbed(event);
+  
+  // Try to get team name from event or look up by ID
+  let teamName: string | null = null;
+  if ('name' in event && event.name) {
+    teamName = event.name;
+  } else if ('teamId' in event && event.teamId && gameState) {
+    const team = gameState.teams.find(t => t.id === event.teamId);
+    if (team) teamName = team.name;
+  }
+  
+  // Send to main channel if configured
+  if (DISCORD_WEBHOOK_URL) {
+    await sendToWebhook(DISCORD_WEBHOOK_URL, embed);
+  }
+  
+  // Send to team-specific channel if available
+  if (teamName && teamWebhooks.size > 0) {
+    const teamWebhookUrl = teamWebhooks.get(teamName.toLowerCase());
+    if (teamWebhookUrl) {
+      await sendToWebhook(teamWebhookUrl, embed);
+    }
   }
 }
 
