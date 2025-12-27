@@ -1603,14 +1603,19 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           return addLog(game, "Nothing to undo - no history available");
         }
         
+        // Get what action is being undone (from current state's first log)
+        const undoneAction = game.log && game.log.length > 0 
+          ? game.log[0].message 
+          : "last action";
+        
         // Get the most recent state from history
         const previousState = history[history.length - 1];
         // Remove the last item from history
         const newHistory = history.slice(0, -1);
         
-        // Restore previous state with updated history and add log
+        // Restore previous state with updated history and add descriptive log
         let next: GameState = { ...previousState, eventHistory: newHistory };
-        next = addLog(next, "Admin undid last action");
+        next = addLog(next, `⎌ Undid: ${undoneAction}`);
         return next;
       }
 

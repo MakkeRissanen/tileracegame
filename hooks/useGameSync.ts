@@ -6,12 +6,13 @@ import { database } from "@/lib/firebase";
 import { GameState, GameEvent } from "@/types/game";
 import { initialGame } from "@/lib/gameUtils";
 import { applyEvent } from "@/lib/gameEvents";
+import { sendEventToDiscord } from "@/lib/discordWebhook";
 
 /**
  * Custom hook for real-time game state synchronization with Firebase
  * Uses Firebase transactions to prevent race conditions and ensure atomic operations
  */
-export function useGameSync(gameId: string = "main") {
+export function useGameSync(gameId: string = "main", enabled: boolean = true) {
   const [game, setGame] = useState<GameState>(initialGame());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,10 @@ export function useGameSync(gameId: string = "main") {
 
   // Load game state from Firebase
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     const gameRef = ref(database, `games/${gameId}`);
 
     const handleValue = (snapshot: any) => {
@@ -66,7 +71,7 @@ export function useGameSync(gameId: string = "main") {
     return () => {
       off(gameRef, "value", handleValue);
     };
-  }, [gameId]);
+  }, [gameId, enabled]);
 
   /**
    * Process the event queue sequentially
@@ -114,6 +119,11 @@ export function useGameSync(gameId: string = "main") {
         // Transaction succeeded - apply optimistic update
         optimisticState.current = optimisticNewState;
         setGame(optimisticNewState);
+        
+        // Send event to Discord (async, non-blocking)
+        sendEventToDiscord(event).catch(err => 
+          console.error("Discord webhook failed:", err)
+        );
         
         // Clear optimistic state after a short delay to allow server sync
         setTimeout(() => {

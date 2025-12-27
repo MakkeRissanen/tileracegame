@@ -30,9 +30,15 @@ import ClaimPowerupConfirmModal from "./ClaimPowerupConfirmModal";
 import PowerupClaimPlayerPickerModal from "./PowerupClaimPlayerPickerModal";
 import RulebookModal from "./RulebookModal";
 import { PoolTask } from "@/types/game";
+import { verifyTeamCredentials, verifyAdminPassword } from "@/lib/teamAuth";
 
 export default function TileRaceGame() {
-  const { game, loading, dispatch } = useGameSync();
+  // Authentication state - controls when game data is loaded
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authInProgress, setAuthInProgress] = useState(false);
+  
+  // Only sync game state after authentication
+  const { game, loading, dispatch } = useGameSync("main", isAuthenticated);
   const [isDark] = useState(true);
   const { myTeam, setTeam, logout, isRestoring } = useTeamSession(game.teams || []);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
@@ -62,10 +68,60 @@ export default function TileRaceGame() {
   const [claimConfirmOpen, setClaimConfirmOpen] = useState(false);
   const [powerupClaimPickerOpen, setPowerupClaimPickerOpen] = useState(false);
 
+  // Handle team login with authentication
+  const handleTeamLogin = async (team: Team, password: string) => {
+    setAuthInProgress(true);
+    try {
+      const result = await verifyTeamCredentials("main", team.name, password);
+      
+      if (result.success) {
+        setIsAuthenticated(true);
+        // Wait a moment for game state to load before setting team
+        setTimeout(() => {
+          setTeam(result.team);
+          setAuthInProgress(false);
+        }, 500);
+      } else {
+        alert(result.error);
+        setAuthInProgress(false);
+      }
+    } catch (err) {
+      alert("Authentication failed. Please try again.");
+      setAuthInProgress(false);
+    }
+  };
+
+  // Handle admin login
+  const handleAdminLogin = async (password: string) => {
+    setAuthInProgress(true);
+    try {
+      const valid = await verifyAdminPassword(password);
+      
+      if (valid) {
+        setIsAuthenticated(true);
+        setIsAdmin(true);
+        setAuthInProgress(false);
+      } else {
+        alert("Invalid admin password");
+        setAuthInProgress(false);
+      }
+    } catch (err) {
+      alert("Authentication failed. Please try again.");
+      setAuthInProgress(false);
+    }
+  };
+
+  // Handle logout - clear authentication
+  const handleLogout = () => {
+    logout();
+    setIsAuthenticated(false);
+    setIsAdmin(false);
+  };
+
   const handlers = useGameHandlers({
     dispatch,
     setTeam,
-    logout,
+    logout: handleLogout,
     setShowFormTeamsModal,
     setShowImportTasksModal,
     setShowImportPowerupsModal,
@@ -317,28 +373,12 @@ export default function TileRaceGame() {
           />
         </GameHeader>
 
-        {!myTeam && !isAdmin ? (
+        {!isAuthenticated ? (
           <TeamSelect 
-            game={game} 
             isDark={isDark} 
-            onSelectTeam={handlers.handleSelectTeam}
-            onAdminLogin={async (password) => {
-              try {
-                const response = await fetch('/api/admin/verify', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ password }),
-                });
-                const data = await response.json();
-                if (data.success) {
-                  setIsAdmin(true);
-                } else {
-                  alert("Incorrect admin password!");
-                }
-              } catch (error) {
-                alert("Error verifying password. Please try again.");
-              }
-            }}
+            onSelectTeam={handleTeamLogin}
+            onAdminLogin={handleAdminLogin}
+            isLoading={authInProgress || loading}
           />
         ) : !myTeam && isAdmin ? (
           <MainGameLayout

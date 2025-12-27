@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { Button, Card, inputClass } from "./ui";
-import { GameState, Team } from "@/types/game";
+import { Team } from "@/types/game";
 
 interface TeamSelectProps {
-  game: GameState;
   isDark: boolean;
   onSelectTeam: (team: Team, password: string) => void;
   onAdminLogin: (password: string) => void;
+  isLoading?: boolean;
 }
 
-export default function TeamSelect({ game, isDark, onSelectTeam, onAdminLogin }: TeamSelectProps) {
+export default function TeamSelect({ isDark, onSelectTeam, onAdminLogin, isLoading }: TeamSelectProps) {
   const [teamName, setTeamName] = useState("");
   const [password, setPassword] = useState("");
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -45,15 +45,27 @@ export default function TeamSelect({ game, isDark, onSelectTeam, onAdminLogin }:
       return;
     }
     
-    const team = game.teams?.find(
-      (t) => t.name.toLowerCase() === trimmedTeamName.toLowerCase()
-    );
+    // Create a temporary team object for authentication
+    // The actual team data will be loaded after authentication
+    const tempTeam: Team = {
+      id: "",
+      name: trimmedTeamName,
+      pos: 0,
+      color: "",
+      password: "",
+      createdAt: 0,
+      inventory: [],
+      preCleared: [],
+      copyChoice: [],
+      claimedRaceTileRewards: [],
+      claimedPowerupTiles: [],
+      members: [],
+      captain: "",
+      playerPoints: {},
+      powerupCooldown: false,
+    };
     
-    if (team) {
-      onSelectTeam(team, trimmedPassword);
-    } else {
-      alert("Team not found. Please check the team name.");
-    }
+    onSelectTeam(tempTeam, trimmedPassword);
   };
 
   return (
@@ -89,11 +101,6 @@ export default function TeamSelect({ game, isDark, onSelectTeam, onAdminLogin }:
               placeholder="Enter your team name"
               required={!isAdminMode}
             />
-            {game.teams && game.teams.filter((t) => t.password).length > 0 && (
-              <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                Available teams: {game.teams.filter((t) => t.password).map((t) => t.name).join(", ")}
-              </p>
-            )}
           </div>
         )}
 
@@ -111,8 +118,8 @@ export default function TeamSelect({ game, isDark, onSelectTeam, onAdminLogin }:
           />
         </div>
 
-        <Button type="submit" variant="primary" isDark={isDark} className="w-full">
-          {isAdminMode ? "🔑 Login as Admin" : "Join Team"}
+        <Button type="submit" variant="primary" isDark={isDark} className="w-full" disabled={isLoading}>
+          {isLoading ? "Authenticating..." : isAdminMode ? "🔑 Login as Admin" : "Join Team"}
         </Button>
       </form>
     </Card>
