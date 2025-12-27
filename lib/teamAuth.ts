@@ -1,6 +1,6 @@
 import { ref, get } from "firebase/database";
 import { database } from "./firebase";
-import { Team } from "@/types/game";
+import { Team, Admin } from "@/types/game";
 
 // Simple hash function (consistent with existing auth system)
 function simpleHash(str: string): string {
@@ -56,7 +56,50 @@ export async function verifyTeamCredentials(
   }
 }
 
-// Verify admin password
+// Verify admin credentials without loading full game state
+export async function verifyAdminCredentials(
+  gameId: string,
+  adminName: string,
+  password: string
+): Promise<{ success: true; admin: Admin } | { success: false; error: string }> {
+  try {
+    // Load only the admins data from Firebase
+    const adminsRef = ref(database, `games/${gameId}/admins`);
+    const snapshot = await get(adminsRef);
+    
+    if (!snapshot.exists()) {
+      return { success: false, error: "No admins found" };
+    }
+
+    const admins = snapshot.val() as Record<string, Admin>;
+    const adminsArray = Object.values(admins);
+    
+    // Find admin by name (case-insensitive)
+    const admin = adminsArray.find(
+      (a) => a.name.toLowerCase() === adminName.toLowerCase()
+    );
+
+    if (!admin) {
+      return { success: false, error: "Admin not found" };
+    }
+
+    // Verify password
+    if (!admin.password) {
+      return { success: false, error: "Admin has no password set" };
+    }
+
+    if (admin.password !== password) {
+      return { success: false, error: "Invalid password" };
+    }
+
+    return { success: true, admin };
+  } catch (error: any) {
+    console.error("Admin verification error:", error);
+    return { success: false, error: "Authentication failed" };
+  }
+}
+
+// Legacy function - kept for backwards compatibility but deprecated
 export async function verifyAdminPassword(
   password: string
 ): Promise<boolean> {

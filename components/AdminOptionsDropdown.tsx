@@ -4,6 +4,7 @@ import { useState } from "react";
 
 interface AdminOptionsDropdownProps {
   isDark: boolean;
+  isMasterAdmin: boolean;
   onClose: () => void;
   onFormTeams: () => void;
   onImportTasks: () => void;
@@ -20,6 +21,7 @@ interface AdminOptionsDropdownProps {
 
 export default function AdminOptionsDropdown({
   isDark,
+  isMasterAdmin,
   onClose,
   onFormTeams,
   onImportTasks,
@@ -41,19 +43,21 @@ export default function AdminOptionsDropdown({
     ? "👁️ Fog of War (Admin Only)"
     : "👁️ Fog of War (Disabled)";
     
-  const menuItems = [
-    { label: "👥 Form teams", onClick: () => { onClose(); onFormTeams(); } },
-    { label: "📥 Import tasks", onClick: () => { onClose(); onImportTasks(); } },
-    { label: "📦 Import powerups", onClick: () => { onClose(); onImportPowerups(); } },
-    { label: "⚙️ Gradient settings", onClick: () => { onClose(); onGradientSettings(); } },
-    { label: fogOfWarLabel, onClick: () => { onClose(); onDisableFogOfWar(); } },
-    { label: "💾 Download Game Backup", onClick: () => { onClose(); alert("Download backup - Coming soon!"); } },
-    { label: "📂 Restore Game Backup", onClick: () => { onClose(); alert("Restore backup - Coming soon!"); } },
-    { label: "👤 Manage Admins", onClick: () => { onClose(); onManageAdmins(); } },
-    { label: "🔑 Change Password", onClick: () => { onClose(); onChangePassword(); } },
-    { label: "🔐 Set Team Passwords", onClick: () => { onClose(); onSetTeamPasswords(); } },
-    { label: "↩️ Undo", onClick: () => { onClose(); onUndo(); } },
+  const allMenuItems = [
+    { label: "👥 Form teams", onClick: () => { onClose(); onFormTeams(); }, masterOnly: true },
+    { label: "📥 Import tasks", onClick: () => { onClose(); onImportTasks(); }, masterOnly: true },
+    { label: "📦 Import powerups", onClick: () => { onClose(); onImportPowerups(); }, masterOnly: true },
+    { label: "⚙️ Gradient settings", onClick: () => { onClose(); onGradientSettings(); }, masterOnly: true },
+    { label: fogOfWarLabel, onClick: () => { onClose(); onDisableFogOfWar(); }, masterOnly: true },
+    { label: "💾 Download Game Backup", onClick: () => { onClose(); alert("Download backup - Coming soon!"); }, masterOnly: true },
+    { label: "📂 Restore Game Backup", onClick: () => { onClose(); alert("Restore backup - Coming soon!"); }, masterOnly: true },
+    { label: "👤 Manage Admins", onClick: () => { onClose(); onManageAdmins(); }, masterOnly: true },
+    { label: "🔑 Change Password", onClick: () => { onClose(); onChangePassword(); }, masterOnly: true },
+    { label: "🔐 Set Team Passwords", onClick: () => { onClose(); onSetTeamPasswords(); } , masterOnly: true },
+    { label: "↩️ Undo", onClick: () => { onClose(); onUndo(); }, masterOnly: false },
   ];
+  
+  const menuItems = allMenuItems.filter(item => !item.masterOnly || isMasterAdmin);
 
   return (
     <div
@@ -77,15 +81,17 @@ export default function AdminOptionsDropdown({
               {item.label}
             </button>
           ))}
-          <button
-            onClick={() => setShowDangerZone(true)}
-            className={`
-              w-full px-4 py-3 text-left text-sm
-              ${isDark ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50"}
-            `}
-          >
-            ⚠️ Danger Zone
-          </button>
+          {isMasterAdmin && (
+            <button
+              onClick={() => setShowDangerZone(true)}
+              className={`
+                w-full px-4 py-3 text-left text-sm
+                ${isDark ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50"}
+              `}
+            >
+              ⚠️ Danger Zone
+            </button>
+          )}
         </>
       ) : (
         <>

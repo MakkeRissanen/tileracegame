@@ -7,7 +7,7 @@ import { Team } from "@/types/game";
 interface TeamSelectProps {
   isDark: boolean;
   onSelectTeam: (team: Team, password: string) => void;
-  onAdminLogin: (password: string) => void;
+  onAdminLogin: (adminName: string, password: string) => void;
   isLoading?: boolean;
 }
 
@@ -28,7 +28,14 @@ export default function TeamSelect({ isDark, onSelectTeam, onAdminLogin, isLoadi
     
     // Admin login mode
     if (isAdminMode) {
-      onAdminLogin(trimmedPassword);
+      const trimmedAdminName = teamName.trim();
+      
+      if (!trimmedAdminName) {
+        alert("Please enter an admin name");
+        return;
+      }
+      
+      onAdminLogin(trimmedAdminName, trimmedPassword);
       return;
     }
     
@@ -88,25 +95,23 @@ export default function TeamSelect({ isDark, onSelectTeam, onAdminLogin, isLoadi
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {!isAdminMode && (
-          <div>
-            <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-              Team Name
-            </label>
-            <input
-              type="text"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              className={inputClass(isDark)}
-              placeholder="Enter your team name"
-              required={!isAdminMode}
-            />
-          </div>
-        )}
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+            {isAdminMode ? "Admin Name" : "Team Name"}
+          </label>
+          <input
+            type="text"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            className={inputClass(isDark)}
+            placeholder={isAdminMode ? "Enter admin name" : "Enter your team name"}
+            required
+          />
+        </div>
 
         <div>
           <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-            {isAdminMode ? "Admin Password" : "Password"}
+            Password
           </label>
           <input
             type="password"

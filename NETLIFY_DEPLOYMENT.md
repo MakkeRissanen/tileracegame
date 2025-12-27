@@ -84,7 +84,6 @@ Already created in your project root. Contents:
    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789012
    NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789012:web:abcdef
    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
-   ADMIN_PASSWORD=your_strong_production_password
    ```
 
 7. **Click "Deploy site"**
@@ -121,22 +120,16 @@ netlify deploy --prod
 
 ## Step 5: Configure Your Site
 
-### Set Production Admin Password
+### Set Up Admin Accounts
 
-**CRITICAL**: In Netlify Dashboard → Site settings → Environment variables:
+**IMPORTANT**: After deployment, set up admin accounts:
 
-Change `ADMIN_PASSWORD` to something strong:
-```
-ADMIN_PASSWORD=MyVeryStr0ng!Password2025
-```
+1. Visit your deployed site URL
+2. Login as an existing admin or use the "Manage Admins" feature
+3. Create admin accounts with strong passwords
+4. Designate at least one as "Master Admin"
 
-After changing, redeploy:
-```bash
-git commit --allow-empty -m "Trigger redeploy"
-git push
-```
-
-Or in Netlify Dashboard: **Deploys → Trigger deploy → Deploy site**
+Admin credentials are stored in the Firebase database, not environment variables.
 
 ### Custom Domain (Optional)
 
@@ -214,9 +207,10 @@ git push
 - Firebase automatically allows all origins
 - Check if using correct `authDomain` and `databaseURL`
 
-**Admin Panel 403:**
-- Check `ADMIN_PASSWORD` environment variable is set
-- Ensure it's NOT prefixed with `NEXT_PUBLIC_`
+**Admin Login Issues:**
+- Ensure admin accounts are configured in the database
+- Check Firebase database rules allow read/write access
+- Verify admin credentials are correct
 
 ### Performance Issues
 

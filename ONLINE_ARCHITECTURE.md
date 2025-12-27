@@ -80,11 +80,12 @@ games/
 8. On browser close: Session cleared, must login again
 
 ### Admin Flow
-1. Navigate to `https://yourgame.com/admin`
-2. Enter admin password (from ADMIN_PASSWORD env var)
-3. Create teams and set passwords
-4. Edit tiles and game configuration
-5. Changes immediately visible to all players
+1. Navigate to `https://yourgame.com/`
+2. Click "Admin Login" and enter admin name and password
+3. Admin credentials verified against Firebase database
+4. Create teams and set passwords
+5. Edit tiles and game configuration
+6. Changes immediately visible to all players
 
 ## Real-Time Synchronization
 

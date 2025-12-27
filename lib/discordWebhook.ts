@@ -1,4 +1,4 @@
-import { GameEvent, GameState } from "@/types/game";
+import { GameEvent, GameState, POWERUP_DEFS } from "@/types/game";
 
 /**
  * Discord webhook integration for game events
@@ -48,8 +48,21 @@ interface DiscordEmbed {
 /**
  * Convert game event to Discord embed format
  */
-function eventToEmbed(event: GameEvent): DiscordEmbed {
+function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
   const timestamp = new Date().toISOString();
+  
+  // Helper to get team name by ID
+  const getTeamName = (teamId: string): string => {
+    if (!gameState) return teamId;
+    const team = gameState.teams.find(t => t.id === teamId);
+    return team ? team.name : teamId;
+  };
+  
+  // Helper to get powerup name by ID
+  const getPowerupName = (powerupId: string): string => {
+    const powerup = POWERUP_DEFS.find(p => p.id === powerupId);
+    return powerup ? powerup.name : powerupId;
+  };
   
   // Color scheme based on event type
   const colors: Record<string, number> = {
@@ -74,28 +87,75 @@ function eventToEmbed(event: GameEvent): DiscordEmbed {
   
   switch (event.type) {
     case "COMPLETE_TILE":
+      const teamName = getTeamName(event.teamId);
       title = "✅ Task Completed";
-      description = `**${event.teamId}** completed a task`;
-      if (event.playerNames && event.playerNames.length > 0) {
+      
+      // Check if admin action (no player names)
+      const isAdminComplete = !event.playerNames || event.playerNames.length === 0;
+      if (isAdminComplete) {
+        description = `**${teamName}** completed a task *(Admin action)*`;
+      } else {
+        description = `**${teamName}** completed a task`;
         fields.push({ name: "Players", value: event.playerNames.join(", "), inline: false });
+      }
+      
+      // Add tile position if available from game state
+      if (gameState) {
+        const team = gameState.teams.find(t => t.id === event.teamId);
+        if (team) {
+          const tile = gameState.raceTiles.find(t => t.n === team.pos - 1);
+          if (tile) {
+            fields.push({ name: "Tile", value: `#${team.pos - 1} - ${tile.label}`, inline: false });
+            const difficulty = tile.difficulty === 1 ? "Easy" : tile.difficulty === 2 ? "Medium" : "Hard";
+            fields.push({ name: "Difficulty", value: difficulty, inline: true });
+          }
+          fields.push({ name: "New Position", value: `Tile ${team.pos}`, inline: true });
+        }
       }
       break;
       
     case "CLAIM_POWERUP_TILE":
+      const claimTeamName = getTeamName(event.teamId);
       title = "🎁 Powerup Claimed";
-      description = `A team claimed a powerup tile`;
-      if (event.playerNames && event.playerNames.length > 0) {
+      
+      // Check if admin action (no player names)
+      const isAdminClaim = !event.playerNames || event.playerNames.length === 0;
+      if (isAdminClaim) {
+        description = `**${claimTeamName}** claimed a powerup tile *(Admin action)*`;
+      } else {
+        description = `**${claimTeamName}** claimed a powerup tile`;
         fields.push({ name: "Players", value: event.playerNames.join(", "), inline: false });
       }
-      fields.push({ name: "Tile ID", value: String(event.powerTileId), inline: true });
+      
+      // Get powerup tile details
+      if (gameState) {
+        const powerupTile = gameState.powerupTiles.find(pt => pt.id === Number(event.powerTileId));
+        if (powerupTile) {
+          fields.push({ name: "Powerup", value: getPowerupName(powerupTile.rewardPowerupId), inline: false });
+          fields.push({ name: "Task", value: powerupTile.label, inline: false });
+        }
+      }
       break;
       
     case "USE_POWERUP":
+      const useTeamName = getTeamName(event.teamId);
+      const powerupName = getPowerupName(event.powerupId);
       title = "⚡ Powerup Used";
-      description = `A team used a powerup`;
-      fields.push({ name: "Powerup ID", value: event.powerupId, inline: true });
-      if (event.targetId) fields.push({ name: "Target Team", value: event.targetId, inline: true });
-      if (event.futureTile) fields.push({ name: "Target Tile", value: String(event.futureTile), inline: true });
+      
+      // Check if admin triggered
+      if (event.adminName) {
+        description = `**${useTeamName}** used **${powerupName}** *(Admin action)*`;
+      } else {
+        description = `**${useTeamName}** used **${powerupName}**`;
+      }
+      
+      if (event.targetId) {
+        const targetName = getTeamName(event.targetId);
+        fields.push({ name: "Target Team", value: targetName, inline: true });
+      }
+      if (event.futureTile) {
+        fields.push({ name: "Target Tile", value: `#${event.futureTile}`, inline: true });
+      }
       break;
       
     case "ADD_TEAM":
@@ -157,12 +217,17 @@ function getTeamIdFromEvent(event: GameEvent): string | null {
 /**
  * Send message to a Discord webhook
  */
-async function sendToWebhook(webhookUrl: string, embed: DiscordEmbed): Promise<boolean> {
+async function sendToWebhook(webhookUrl: string, embed: DiscordEmbed, mentionText?: string): Promise<boolean> {
   try {
-    const payload = {
+    const payload: any = {
       embeds: [embed],
       username: "TileRace Game Bot",
     };
+    
+    // Add mention text if provided (for team-specific channels)
+    if (mentionText) {
+      payload.content = mentionText;
+    }
     
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -195,15 +260,23 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
     return;
   }
   
-  const embed = eventToEmbed(event);
+  const embed = eventToEmbed(event, gameState);
   
-  // Try to get team name from event or look up by ID
-  let teamName: string | null = null;
+  // Collect all affected team names
+  const affectedTeamNames = new Set<string>();
+  
+  // Get primary team name (the team performing the action)
   if ('name' in event && event.name) {
-    teamName = event.name;
+    affectedTeamNames.add(event.name);
   } else if ('teamId' in event && event.teamId && gameState) {
     const team = gameState.teams.find(t => t.id === event.teamId);
-    if (team) teamName = team.name;
+    if (team) affectedTeamNames.add(team.name);
+  }
+  
+  // For targeted powerups, also notify the target team
+  if (event.type === 'USE_POWERUP' && 'targetId' in event && event.targetId && gameState) {
+    const targetTeam = gameState.teams.find(t => t.id === event.targetId);
+    if (targetTeam) affectedTeamNames.add(targetTeam.name);
   }
   
   // Send to main channel if configured
@@ -211,11 +284,14 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
     await sendToWebhook(DISCORD_WEBHOOK_URL, embed);
   }
   
-  // Send to team-specific channel if available
-  if (teamName && teamWebhooks.size > 0) {
-    const teamWebhookUrl = teamWebhooks.get(teamName.toLowerCase());
-    if (teamWebhookUrl) {
-      await sendToWebhook(teamWebhookUrl, embed);
+  // Send to all affected team-specific channels with team mention
+  if (affectedTeamNames.size > 0 && teamWebhooks.size > 0) {
+    for (const teamName of affectedTeamNames) {
+      const teamWebhookUrl = teamWebhooks.get(teamName.toLowerCase());
+      if (teamWebhookUrl) {
+        const mention = `@${teamName}`;
+        await sendToWebhook(teamWebhookUrl, embed, mention);
+      }
     }
   }
 }

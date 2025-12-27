@@ -136,6 +136,7 @@ export type GameEvent =
       futureTile?: number;
       changeTaskId?: string;
       targetPowerupId?: string;
+      adminName?: string;
     }
   | {
       type: "ADMIN_EDIT_RACE_TILE";

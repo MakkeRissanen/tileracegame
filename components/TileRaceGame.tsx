@@ -30,7 +30,7 @@ import ClaimPowerupConfirmModal from "./ClaimPowerupConfirmModal";
 import PowerupClaimPlayerPickerModal from "./PowerupClaimPlayerPickerModal";
 import RulebookModal from "./RulebookModal";
 import { PoolTask } from "@/types/game";
-import { verifyTeamCredentials, verifyAdminPassword } from "@/lib/teamAuth";
+import { verifyTeamCredentials, verifyAdminCredentials } from "@/lib/teamAuth";
 
 export default function TileRaceGame() {
   // Authentication state - controls when game data is loaded
@@ -47,6 +47,8 @@ export default function TileRaceGame() {
   const [usePowerupTeamId, setUsePowerupTeamId] = useState<string | null>(null);
   const [showAdminOptions, setShowAdminOptions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+  const [adminName, setAdminName] = useState<string | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showFormTeamsModal, setShowFormTeamsModal] = useState(false);
   const [showImportTasksModal, setShowImportTasksModal] = useState(false);
@@ -92,17 +94,20 @@ export default function TileRaceGame() {
   };
 
   // Handle admin login
-  const handleAdminLogin = async (password: string) => {
+  const handleAdminLogin = async (adminName: string, password: string) => {
     setAuthInProgress(true);
     try {
-      const valid = await verifyAdminPassword(password);
+      const result = await verifyAdminCredentials("main", adminName, password);
       
-      if (valid) {
+      if (result.success) {
+        // Use the admin name from the database
+        setAdminName(result.admin.name);
+        setIsMasterAdmin(result.admin.isMaster || false);
         setIsAuthenticated(true);
         setIsAdmin(true);
         setAuthInProgress(false);
       } else {
-        alert("Invalid admin password");
+        alert(result.error || "Invalid admin credentials");
         setAuthInProgress(false);
       }
     } catch (err) {
@@ -116,6 +121,8 @@ export default function TileRaceGame() {
     logout();
     setIsAuthenticated(false);
     setIsAdmin(false);
+    setIsMasterAdmin(false);
+    setAdminName(null);
   };
 
   const handlers = useGameHandlers({
@@ -161,11 +168,15 @@ export default function TileRaceGame() {
     if (!teamId) return;
     
     try {
+      // Check if this is an admin action (usePowerupTeamId set but no myTeam, or usePowerupTeamId differs from myTeam)
+      const isAdminAction = isAdmin && usePowerupTeamId && usePowerupTeamId !== myTeam?.id;
+      
       await dispatch({
         type: "USE_POWERUP",
         teamId,
         powerupId,
         ...data,
+        ...(isAdminAction && { adminName: adminName || "Admin" }),
       });
       // Reset state after successful use
       setUsePowerupTeamId(null);
@@ -358,6 +369,7 @@ export default function TileRaceGame() {
         >
           <AdminOptionsDropdown
             isDark={isDark}
+            isMasterAdmin={isMasterAdmin}
             onClose={() => setShowAdminOptions(false)}
             onFormTeams={() => setShowFormTeamsModal(true)}
             onImportTasks={() => setShowImportTasksModal(true)}
