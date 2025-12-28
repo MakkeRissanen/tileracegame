@@ -8,7 +8,7 @@ interface UndoHistoryModalProps {
   isDark: boolean;
   currentState: GameState;
   onClose: () => void;
-  onUndo: () => void;
+  onUndo: (targetIndex?: number) => void;
 }
 
 export default function UndoHistoryModal({
@@ -80,10 +80,18 @@ export default function UndoHistoryModal({
     return { message: "No recent action", timestamp: Date.now() };
   };
 
-  const handleUndo = () => {
-    const action = getMostRecentAction();
-    if (confirm(`Are you sure you want to undo this action?\n\n"${action.message}"`)) {
-      onUndo();
+  const handleUndo = (targetIndex?: number) => {
+    if (targetIndex !== undefined) {
+      const actionInfo = getActionForState(targetIndex);
+      const numActionsToUndo = history.length - targetIndex;
+      if (confirm(`Undo to this point? This will undo ${numActionsToUndo} action(s):\n\n"${actionInfo.message}"`)) {
+        onUndo(targetIndex);
+      }
+    } else {
+      const action = getMostRecentAction();
+      if (confirm(`Are you sure you want to undo this action?\n\n"${action.message}"`)) {
+        onUndo();
+      }
     }
   };
 
@@ -149,11 +157,15 @@ export default function UndoHistoryModal({
                   const actionInfo = getActionForState(actualIndex);
                   
                   return (
-                    <div
+                    <button
                       key={actualIndex}
+                      onClick={() => handleUndo(actualIndex)}
                       className={`
-                        p-3 rounded-lg
-                        ${isDark ? "bg-slate-800 text-slate-200" : "bg-white text-slate-800"}
+                        w-full p-3 rounded-lg transition-all text-left
+                        ${isDark 
+                          ? "bg-slate-800 text-slate-200 hover:bg-slate-700 hover:ring-2 hover:ring-blue-500" 
+                          : "bg-white text-slate-800 hover:bg-blue-50 hover:ring-2 hover:ring-blue-400"
+                        }
                       `}
                     >
                       <div className="flex items-start gap-2">
@@ -166,8 +178,11 @@ export default function UndoHistoryModal({
                             {formatTimestamp(actionInfo.timestamp)}
                           </p>
                         </div>
+                        <span className={`text-xs ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                          ↩️ Undo to here
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { GameState, Team } from "@/types/game";
 import { Button, Card, inputClass } from "./ui";
 
@@ -91,10 +92,13 @@ export default function GameBoard({ game, isDark, myTeam, isAdmin = false, admin
         </h2>
 
         {currentTile.image && (
-          <img
+          <Image
             src={currentTile.image}
             alt={currentTile.label}
+            width={400}
+            height={300}
             className="w-full max-w-md mx-auto mb-4 rounded-lg"
+            unoptimized
           />
         )}
 

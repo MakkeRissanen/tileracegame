@@ -106,9 +106,9 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
       // Check if admin action
       const isAdminComplete = event.adminName !== undefined;
       if (isAdminComplete) {
-        title = `[${event.adminName}] ${teamName} completed a task`;
+        title = `${event.adminName}\n✅ ${teamName} completed a tile`;
       } else {
-        title = `${teamName} completed a task`;
+        title = `✅ ${teamName} completed a tile`;
       }
       
       // Add tile position if available from game state
@@ -130,11 +130,22 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
             
             // Format player completions as list
             if (event.playerNames && event.playerNames.length > 0) {
-              const playersList = event.playerNames.map(p => `• ${p} - ${points} pt${points !== 1 ? 's' : ''}`).join('\n');
+              const playersList = event.playerNames.map(p => `⭐ ${p} - ${points} pt${points !== 1 ? 's' : ''}`).join('\n');
               fields.push({ name: "Completions", value: playersList, inline: false });
             }
           }
-          fields.push({ name: "New Position", value: `Tile ${team.pos}`, inline: true });
+          
+          // Add current position with task label
+          const currentTile = gameState.raceTiles.find(t => t.n === team.pos);
+          if (currentTile) {
+            let positionText = `Tile ${team.pos}: "${currentTile.label}"`;
+            if (currentTile.startProofNeeded) {
+              positionText += '\n⚠️ START PROOF CHECK';
+            }
+            fields.push({ name: "New Position", value: positionText, inline: false });
+          } else {
+            fields.push({ name: "New Position", value: `Tile ${team.pos}`, inline: false });
+          }
         }
       }
       break;
@@ -142,22 +153,23 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
     case "CLAIM_POWERUP_TILE":
       const claimTeamName = getTeamName(event.teamId);
       
-      // Check if admin action (no player names)
-      const isAdminClaim = !event.playerNames || event.playerNames.length === 0;
-      if (isAdminClaim) {
-        title = `[Admin] ${claimTeamName} claimed a powerup tile`;
-      } else {
-        title = `${claimTeamName} claimed a powerup tile`;
-      }
-      
       // Get powerup tile details
       if (gameState) {
         const powerupTile = gameState.powerupTiles.find(pt => pt.id === Number(event.powerTileId));
         if (powerupTile) {
-          fields.push({ name: "Powerup", value: getPowerupName(powerupTile.rewardPowerupId), inline: false });
+          const powerupName = getPowerupName(powerupTile.rewardPowerupId);
+          
+          // Check if admin action
+          const isAdminClaim = event.adminName !== undefined;
+          if (isAdminClaim) {
+            title = `${event.adminName}\n🎁 ${claimTeamName} claimed\n${powerupName}`;
+          } else {
+            title = `🎁 ${claimTeamName} claimed\n${powerupName}`;
+          }
+          
           fields.push({ name: "Task", value: powerupTile.label, inline: false });
           if (powerupTile.pointsPerCompletion > 0 && event.playerNames && event.playerNames.length > 0) {
-            const playersList = event.playerNames.map(p => `• ${p} - ${powerupTile.pointsPerCompletion} pt${powerupTile.pointsPerCompletion !== 1 ? 's' : ''}`).join('\n');
+            const playersList = event.playerNames.map(p => `⭐ ${p} - ${powerupTile.pointsPerCompletion} pt${powerupTile.pointsPerCompletion !== 1 ? 's' : ''}`).join('\n');
             fields.push({ name: "Completions", value: playersList, inline: false });
           }
         }
@@ -167,84 +179,264 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
     case "USE_POWERUP":
       const useTeamName = getTeamName(event.teamId);
       const powerupName = getPowerupName(event.powerupId);
-      title = "⚡ Powerup Used";
       
       // Check if admin triggered
       if (event.adminName) {
-        description = `**${useTeamName}** used **${powerupName}** *(Admin action)*`;
+        title = `${event.adminName}\n⚡ ${useTeamName} used\n${powerupName}`;
       } else {
-        description = `**${useTeamName}** used **${powerupName}**`;
+        title = `⚡ ${useTeamName} used\n${powerupName}`;
       }
+      description = "";
       
       if (event.targetId) {
         const targetName = getTeamName(event.targetId);
         fields.push({ name: "Target Team", value: targetName, inline: true });
       }
-      if (event.futureTile) {
-        fields.push({ name: "Target Tile", value: `#${event.futureTile}`, inline: true });
-      }
-      break;
-      
-    case "ADD_TEAM":
-      title = "➕ Team Added";
-      description = `New team created: **${event.name}**`;
-      if (event.adminName) fields.push({ name: "Admin", value: event.adminName, inline: true });
-      break;
-      
-    case "REMOVE_TEAM":
-      title = "❌ Team Removed";
-      description = `A team was removed`;
-      fields.push({ name: "Team ID", value: event.teamId, inline: true });
-      break;
-      
-    case "RESET_ALL":
-      title = "🔄 Game Reset";
-      description = "The entire game has been reset";
-      break;
-      
-    case "ADMIN_UNDO":
-      title = "↩️ Undo";
-      description = "Admin undid the last action";
-      break;
-      
-    case "ADMIN_UPDATE_TEAM":
-      const updatedTeamName = getTeamName(event.teamId);
-      title = "✏️ Team Updated";
-      
-      // Build change description matching event log format
-      const changes: string[] = [];
-      if (gameState) {
-        const oldTeam = gameState.teams.find(t => t.id === event.teamId);
-        if (oldTeam && event.updates) {
-          for (const [key, newValue] of Object.entries(event.updates)) {
-            const oldValue = (oldTeam as any)[key];
-            if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-              if (key === "inventory") {
-                const oldLen = Array.isArray(oldValue) ? oldValue.length : 0;
-                const newLen = Array.isArray(newValue) ? (newValue as any[]).length : 0;
-                changes.push(`inventory: ${oldLen} items → ${newLen} items`);
-              } else if (key === "pos") {
-                changes.push(`position: ${oldValue} → ${newValue}`);
-              } else if (key === "powerupCooldown") {
-                changes.push(`cooldown: ${oldValue ? "ON" : "OFF"} → ${newValue ? "ON" : "OFF"}`);
-              } else if (key === "discordWebhookSlot") {
-                const oldSlot = oldValue === null || oldValue === undefined ? "None" : `Channel ${oldValue}`;
-                const newSlot = newValue === null || newValue === undefined ? "None" : `Channel ${newValue}`;
-                changes.push(`discord: ${oldSlot} → ${newSlot}`);
-              } else if (key === "members") {
-                const oldMembers = Array.isArray(oldValue) ? oldValue : [];
-                const newMembers = Array.isArray(newValue) ? newValue : [];
-                changes.push(`members: [${oldMembers.join(", ")}] → [${newMembers.join(", ")}]`);
-              } else {
-                changes.push(`${key}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+      if (event.futureTile !== undefined && gameState) {
+        const targetTile = gameState.raceTiles.find(t => t.n === event.futureTile);
+        if (targetTile) {
+          // For copy/paste and change tile, show the task details
+          if (event.powerupId === 'copypaste') {
+            const userTeam = gameState.teams.find(t => t.id === event.teamId);
+            if (userTeam) {
+              const sourceTile = gameState.raceTiles.find(t => t.n === userTeam.pos);
+              if (sourceTile) {
+                fields.push({ 
+                  name: "Copied From", 
+                  value: `Tile #${userTeam.pos}: "${sourceTile.label}"`, 
+                  inline: false 
+                });
               }
+            }
+            // Show what changed on the pasted tile
+            if (event.oldTaskLabel && event.newTaskLabel) {
+              fields.push({ 
+                name: "Pasted To", 
+                value: `Tile #${event.futureTile}: "${event.oldTaskLabel}" → "${event.newTaskLabel}"`, 
+                inline: false 
+              });
+            } else {
+              fields.push({ 
+                name: "Pasted To", 
+                value: `Tile #${event.futureTile}: "${targetTile.label}"`, 
+                inline: false 
+              });
+            }
+          } else if (event.powerupId === 'changeTile') {
+            fields.push({ 
+              name: "Target Tile", 
+              value: `#${event.futureTile}`, 
+              inline: true 
+            });
+            
+            // Show old task → new task if available
+            if (event.oldTaskLabel && event.newTaskLabel) {
+              fields.push({ 
+                name: "Task Changed", 
+                value: `"${event.oldTaskLabel}" → "${event.newTaskLabel}"`, 
+                inline: false 
+              });
+            } else if (event.newTaskLabel) {
+              fields.push({ 
+                name: "New Task", 
+                value: `"${event.newTaskLabel}"`, 
+                inline: false 
+              });
+            } else if (event.changeTaskId && gameState.taskPools) {
+              // Fallback: try to find task from ID
+              const allTasks = [
+                ...(gameState.taskPools.easy || []),
+                ...(gameState.taskPools.medium || []),
+                ...(gameState.taskPools.hard || [])
+              ];
+              const newTask = allTasks.find(t => t.id === event.changeTaskId);
+              if (newTask) {
+                fields.push({ 
+                  name: "New Task", 
+                  value: `"${newTask.label}"`, 
+                  inline: false 
+                });
+              }
+            }
+          } else if (event.powerupId.startsWith('double')) {
+            // For double tile powerups
+            const difficultyName = targetTile.difficulty === 1 ? 'Easy' : targetTile.difficulty === 2 ? 'Medium' : 'Hard';
+            fields.push({ 
+              name: "Target Tile", 
+              value: `#${event.futureTile} (${difficultyName})`, 
+              inline: true 
+            });
+            fields.push({ 
+              name: "Task", 
+              value: `"${targetTile.label}"`, 
+              inline: false 
+            });
+            fields.push({ 
+              name: "Effect", 
+              value: `Completions doubled: ${targetTile.minCompletions || 1} → ${(targetTile.minCompletions || 1) * 2}`, 
+              inline: false 
+            });
+          } else {
+            fields.push({ 
+              name: "Target Tile", 
+              value: `#${event.futureTile}`, 
+              inline: true 
+            });
+          }
+        } else {
+          fields.push({ name: "Target Tile", value: `#${event.futureTile}`, inline: true });
+        }
+      }
+      
+      // For Disable Powerup, show which powerup was removed
+      if (event.powerupId === 'disablePowerup' && event.targetPowerupId) {
+        const disabledPowerupName = getPowerupName(event.targetPowerupId);
+        fields.push({ 
+          name: "Removed Powerup", 
+          value: disabledPowerupName, 
+          inline: false 
+        });
+      }
+      
+      // For Double Powerup, show which powerup was duplicated
+      if (event.powerupId === 'doublePowerup' && event.targetPowerupId) {
+        const duplicatedPowerupName = getPowerupName(event.targetPowerupId);
+        fields.push({ 
+          name: "Duplicated Powerup", 
+          value: duplicatedPowerupName, 
+          inline: false 
+        });
+      }
+      
+      // Add current position for movement powerups (skip, back)
+      if (gameState && (event.powerupId.startsWith('skip') || event.powerupId.startsWith('back'))) {
+        // For skip/back powerups, show from -> to if available
+        if (event.fromTileNumber !== undefined && event.toTileNumber !== undefined) {
+          const fromTile = gameState.raceTiles.find(t => t.n === event.fromTileNumber);
+          const toTile = gameState.raceTiles.find(t => t.n === event.toTileNumber);
+          
+          // For back powerups, identify the affected team
+          const affectedTeam = event.powerupId.startsWith('back') && event.targetId 
+            ? gameState.teams.find(t => t.id === event.targetId)
+            : gameState.teams.find(t => t.id === event.teamId);
+          
+          const teamLabel = affectedTeam && event.powerupId.startsWith('back') ? `${affectedTeam.name}: ` : '';
+          
+          if (fromTile && toTile) {
+            let movementText = `${teamLabel}Tile ${event.fromTileNumber}: "${fromTile.label}" → Tile ${event.toTileNumber}: "${toTile.label}"`;
+            if (toTile.startProofNeeded) {
+              movementText += '\n⚠️ START PROOF CHECK';
+            }
+            fields.push({ 
+              name: "Movement", 
+              value: movementText, 
+              inline: false 
+            });
+          } else {
+            let movementText = `${teamLabel}Tile ${event.fromTileNumber} → Tile ${event.toTileNumber}`;
+            if (toTile && toTile.startProofNeeded) {
+              movementText += '\n⚠️ START PROOF CHECK';
+            }
+            fields.push({ 
+              name: "Movement", 
+              value: movementText, 
+              inline: false 
+            });
+          }
+        } else {
+          // Fallback if data not available
+          const team = gameState.teams.find(t => t.id === event.teamId);
+          const targetTeam = event.targetId ? gameState.teams.find(t => t.id === event.targetId) : team;
+          if (targetTeam) {
+            const currentTile = gameState.raceTiles.find(t => t.n === targetTeam.pos);
+            if (currentTile) {
+              let positionText = `Tile ${targetTeam.pos}: "${currentTile.label}"`;
+              if (currentTile.startProofNeeded) {
+                positionText += '\n⚠️ START PROOF CHECK';
+              }
+              fields.push({ name: "New Position", value: positionText, inline: false });
+            } else {
+              fields.push({ name: "New Position", value: `Tile ${targetTeam.pos}`, inline: false });
             }
           }
         }
       }
+      break;
       
-      const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
-      description = `Admin updated team **${updatedTeamName}**${changeDesc}`;
+    case "ADD_TEAM":
+      if (event.adminName) {
+        title = `${event.adminName}\n➕ Team Added`;
+      } else {
+        title = "➕ Team Added";
+      }
+      description = `New team created: **${event.name}**`;
+      break;
+      
+    case "REMOVE_TEAM":
+      const removedTeamName = getTeamName(event.teamId);
+      
+      if (event.adminName) {
+        title = `${event.adminName}\n❌ Team Removed`;
+      } else {
+        title = "❌ Team Removed";
+      }
+      
+      description = `Team **${removedTeamName}** was removed from the game`;
+      break;
+      
+    case "RESET_ALL":
+      if (event.adminName) {
+        title = `${event.adminName}\n🔄 Game Reset`;
+      } else {
+        title = "🔄 Game Reset";
+      }
+      description = "The entire game has been reset";
+      break;
+      
+    case "ADMIN_UNDO":
+      if (event.adminName !== undefined) {
+        title = `${event.adminName}\n↩️ Undo`;
+      } else {
+        title = "↩️ Undo";
+      }
+      
+      // Require undoneMessage for Discord posting
+      if (event.undoneMessage) {
+        description = `Reverted action:\n${event.undoneMessage}`;
+      } else {
+        // Don't set description - will be caught by validation and skipped
+        description = "";
+      }
+      break;
+      
+    case "ADMIN_UPDATE_TEAM":
+      const updatedTeamName = getTeamName(event.teamId);
+      const isAdminUpdate = event.adminName !== undefined;
+      
+      if (isAdminUpdate) {
+        title = `${event.adminName}\n✏️ Team Updated`;
+      } else {
+        title = "✏️ Team Updated";
+      }
+      
+      // Use changes from the event if available
+      const changesList = event.changes || [];
+      const changeDesc = changesList.length > 0 ? ` (${changesList.join(", ")})` : "";
+      description = `Updated team **${updatedTeamName}**${changeDesc}`;
+      break;
+      
+    case "ADMIN_TOGGLE_COOLDOWN":
+      const cooldownTeamName = getTeamName(event.teamId);
+      const cooldownTeam = gameState?.teams.find(t => t.id === event.teamId);
+      const cooldownStatus = cooldownTeam?.powerupCooldown ? "ON" : "OFF";
+      
+      if (event.adminName) {
+        title = `${event.adminName}\n🔄 Cooldown Changed`;
+      } else {
+        title = "🔄 Cooldown Changed";
+      }
+      
+      description = `Changed powerup cooldown for **${cooldownTeamName}** → **${cooldownStatus}**`;
       break;
       
     default:
@@ -322,12 +514,33 @@ async function sendToWebhook(webhookUrl: string, embed: DiscordEmbed, mentionTex
  */
 export async function sendEventToDiscord(event: GameEvent, gameState?: GameState): Promise<void> {
   // Skip certain events that are too noisy or not interesting
-  const skipEvents = ["ADMIN_UNDO"]; // Add more if needed
+  const skipEvents: string[] = []; // Add events here if needed
   if (skipEvents.includes(event.type)) {
     return;
   }
   
   const embed = eventToEmbed(event, gameState);
+  
+  // Validate admin messages have meaningful information
+  if ('adminName' in event && event.adminName !== undefined) {
+    // Skip if there's no description and no fields (empty admin message)
+    if (!embed.description && (!embed.fields || embed.fields.length === 0)) {
+      console.warn(`Skipping Discord post for admin event ${event.type} - no meaningful information`);
+      return;
+    }
+    
+    // Skip if description is just generic text
+    const genericMessages = [
+      "Admin undid the last action",
+      "Game event occurred",
+      "A team was removed"
+    ];
+    
+    if (embed.description && genericMessages.includes(embed.description) && (!embed.fields || embed.fields.length === 0)) {
+      console.warn(`Skipping Discord post for admin event ${event.type} - generic message without details`);
+      return;
+    }
+  }
   
   // Collect all affected teams
   const affectedTeams = new Set<{ name: string; slot?: number | null }>();
@@ -338,6 +551,14 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
   } else if ('teamId' in event && event.teamId && gameState) {
     const team = gameState.teams.find(t => t.id === event.teamId);
     if (team) affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+  }
+  
+  // For undo events, notify all affected teams
+  if (event.type === 'ADMIN_UNDO' && 'affectedTeamIds' in event && event.affectedTeamIds && gameState) {
+    event.affectedTeamIds.forEach(teamId => {
+      const team = gameState.teams.find(t => t.id === teamId);
+      if (team) affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+    });
   }
   
   // For targeted powerups, also notify the target team

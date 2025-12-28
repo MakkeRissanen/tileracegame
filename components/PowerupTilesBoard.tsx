@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { GameState, Team, PowerupTile } from "@/types/game";
 import { Button, Card } from "./ui";
 
@@ -77,10 +78,13 @@ export default function PowerupTilesBoard({
             >
               {/* Image */}
               {tile.image && (
-                <img
+                <Image
                   src={tile.image}
                   alt={tile.label}
+                  width={200}
+                  height={80}
                   className="w-full h-20 object-contain rounded-lg mb-3"
+                  unoptimized
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}

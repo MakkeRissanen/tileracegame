@@ -86,7 +86,7 @@ export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelPro
                       : "text-slate-700"
                   }`}
                 >
-                  {points}
+                  {points.toFixed(2)}
                 </div>
               </div>
             );

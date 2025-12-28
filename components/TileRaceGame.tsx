@@ -135,6 +135,8 @@ export default function TileRaceGame() {
     setShowGradientSettingsModal,
     setShowAdminOptions,
     setIsAdmin,
+    game,
+    adminName,
   });
 
   // Check for victory
@@ -168,14 +170,79 @@ export default function TileRaceGame() {
     if (!teamId) return;
     
     try {
-      // Check if this is an admin action (usePowerupTeamId set but no myTeam, or usePowerupTeamId differs from myTeam)
-      const isAdminAction = isAdmin && usePowerupTeamId && usePowerupTeamId !== myTeam?.id;
+      // Check if this is an admin action (admin controlling a team, even if it's their own)
+      const isAdminAction = isAdmin && usePowerupTeamId !== null;
+      
+      // For changeTile powerup, capture old and new task labels
+      let eventData = { ...data };
+      if (powerupId === 'changeTile' && data.futureTile !== undefined && data.changeTaskId) {
+        const targetTile = game.raceTiles.find(t => t.n === Number(data.futureTile));
+        if (targetTile) {
+          eventData.oldTaskLabel = targetTile.label;
+          
+          // Find the new task label
+          const allTasks = [
+            ...(game.taskPools?.easy || []),
+            ...(game.taskPools?.medium || []),
+            ...(game.taskPools?.hard || [])
+          ];
+          const newTask = allTasks.find(t => t.id === data.changeTaskId);
+          if (newTask) {
+            eventData.newTaskLabel = newTask.label;
+          }
+        }
+      }
+      
+      // For copypaste, capture old and new task labels
+      if (powerupId === 'copypaste' && data.futureTile !== undefined) {
+        const team = game.teams.find(t => t.id === teamId);
+        if (team) {
+          const sourceTile = game.raceTiles.find(t => t.n === team.pos);
+          const targetTile = game.raceTiles.find(t => t.n === Number(data.futureTile));
+          if (sourceTile && targetTile) {
+            eventData.oldTaskLabel = targetTile.label;
+            eventData.newTaskLabel = sourceTile.label;
+          }
+        }
+      }
+      
+      // For skip powerups, capture from and to tile positions
+      if (powerupId === 'skip1' || powerupId === 'skip2' || powerupId === 'skip3') {
+        const team = game.teams.find(t => t.id === teamId);
+        if (team) {
+          eventData.fromTileNumber = team.pos;
+          const steps = powerupId === 'skip1' ? 1 : powerupId === 'skip2' ? 2 : 3;
+          // Calculate destination (same logic as usePowerupHandler)
+          let dest = team.pos;
+          for (let i = 0; i < steps; i++) {
+            const preCleared = team.preCleared || [];
+            if (preCleared.includes(dest + 1)) {
+              dest += 2;
+            } else {
+              dest += 1;
+            }
+          }
+          eventData.toTileNumber = dest;
+        }
+      }
+      
+      // For back powerups, capture from and to tile positions of target team
+      if (powerupId === 'back1' || powerupId === 'back2' || powerupId === 'back3') {
+        if (data.targetId) {
+          const targetTeam = game.teams.find(t => t.id === data.targetId);
+          if (targetTeam) {
+            const steps = powerupId === 'back1' ? 1 : powerupId === 'back2' ? 2 : 3;
+            eventData.fromTileNumber = targetTeam.pos;
+            eventData.toTileNumber = Math.max(1, targetTeam.pos - steps);
+          }
+        }
+      }
       
       await dispatch({
         type: "USE_POWERUP",
         teamId,
         powerupId,
-        ...data,
+        ...eventData,
         ...(isAdminAction && { adminName: adminName || "Admin" }),
       });
       // Reset state after successful use
@@ -222,6 +289,7 @@ export default function TileRaceGame() {
       await dispatch({
         type: "ADMIN_TOGGLE_COOLDOWN",
         teamId,
+        adminName: adminName || undefined,
       });
     } catch (err) {
       alert(`Failed to toggle cooldown: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -234,10 +302,43 @@ export default function TileRaceGame() {
 
   const handleUpdateTeam = async (teamId: string, updates: Partial<Team>) => {
     try {
+      // Calculate changes for Discord formatting
+      const oldTeam = game.teams.find((t) => t.id === teamId);
+      const changes: string[] = [];
+      
+      if (oldTeam) {
+        for (const [key, newValue] of Object.entries(updates)) {
+          const oldValue = (oldTeam as any)[key];
+          if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+            if (key === "inventory") {
+              const oldLen = Array.isArray(oldValue) ? oldValue.length : 0;
+              const newLen = Array.isArray(newValue) ? (newValue as any[]).length : 0;
+              changes.push(`inventory: ${oldLen} items → ${newLen} items`);
+            } else if (key === "pos") {
+              changes.push(`position: ${oldValue} → ${newValue}`);
+            } else if (key === "powerupCooldown") {
+              changes.push(`cooldown: ${oldValue ? "ON" : "OFF"} → ${newValue ? "ON" : "OFF"}`);
+            } else if (key === "discordWebhookSlot") {
+              const oldSlot = oldValue === null || oldValue === undefined ? "None" : `Channel ${oldValue}`;
+              const newSlot = newValue === null || newValue === undefined ? "None" : `Channel ${newValue}`;
+              changes.push(`discord: ${oldSlot} → ${newSlot}`);
+            } else if (key === "members") {
+              const oldMembers = Array.isArray(oldValue) ? oldValue : [];
+              const newMembers = Array.isArray(newValue) ? newValue : [];
+              changes.push(`members: [${oldMembers.join(", ")}] → [${newMembers.join(", ")}]`);
+            } else {
+              changes.push(`${key}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+            }
+          }
+        }
+      }
+      
       await dispatch({
         type: "ADMIN_UPDATE_TEAM",
         teamId,
         updates,
+        adminName: adminName || undefined,
+        changes,
       });
       setEditingTeamId(null);
     } catch (err) {
@@ -319,6 +420,7 @@ export default function TileRaceGame() {
         teamId: claimTeamId,
         powerTileId: claimSelectedPowerupTileId,
         playerNames,
+        ...(adminName && { adminName: adminName }),
       });
       
       // Close all modals
@@ -577,8 +679,8 @@ export default function TileRaceGame() {
             isDark={isDark}
             currentState={game}
             onClose={() => setShowUndoHistoryModal(false)}
-            onUndo={() => {
-              handlers.handleUndo();
+            onUndo={(targetIndex) => {
+              handlers.handleUndo(adminName || undefined, targetIndex);
               setShowUndoHistoryModal(false);
             }}
           />

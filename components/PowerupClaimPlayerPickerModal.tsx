@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PowerupTile, Team } from "@/types/game";
 import { Modal } from "@/components/ui";
 
@@ -18,6 +18,13 @@ export default function PowerupClaimPlayerPickerModal({
   onConfirm,
 }: PowerupClaimPlayerPickerModalProps) {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+
+  // Reset selectedPlayers when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedPlayers([]);
+    }
+  }, [isOpen]);
 
   if (!tile || !team) return null;
 
@@ -70,7 +77,7 @@ export default function PowerupClaimPlayerPickerModal({
       selectedPlayers.length <= maxCompletions
     ) {
       onConfirm(selectedPlayers);
-      setSelectedPlayers([]);
+      // State will be reset by useEffect when modal closes
     }
   };
 
@@ -191,7 +198,6 @@ export default function PowerupClaimPlayerPickerModal({
 
           <button
             onClick={() => {
-              setSelectedPlayers([]);
               onClose();
             }}
             className="flex-1 rounded-lg border px-3 py-2 text-sm hover:opacity-80 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"

@@ -539,14 +539,14 @@ export default memo(TeamsSidebar, (prevProps, nextProps) => {
     prevProps.isDark === nextProps.isDark &&
     prevProps.myTeam?.id === nextProps.myTeam?.id &&
     prevProps.isAdmin === nextProps.isAdmin &&
-    JSON.stringify(prevProps.game.teams.map(t => ({ 
+    JSON.stringify(prevProps.game.teams?.map(t => ({ 
       id: t.id, 
       name: t.name, 
       pos: t.pos, 
       inventory: t.inventory,
       powerupCooldown: t.powerupCooldown
     }))) === 
-    JSON.stringify(nextProps.game.teams.map(t => ({ 
+    JSON.stringify(nextProps.game.teams?.map(t => ({ 
       id: t.id, 
       name: t.name, 
       pos: t.pos, 

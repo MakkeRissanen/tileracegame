@@ -15,10 +15,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
   const sections = [
     { id: "overview", label: "Game Overview", icon: "🎮" },
     { id: "tiles", label: "Tile System", icon: "🎯" },
-    { id: "powerups", label: "Powerup Mechanics", icon: "⚡" },
-    { id: "powerup-info", label: "Powerup Reference", icon: "📋" },
-    { id: "restrictions", label: "Tile Targeting Rules", icon: "🚫" },
-    { id: "strategy", label: "Strategy Tips", icon: "💡" },
+    { id: "powerup-info", label: "Powerups & Rules", icon: "📋" },
   ];
 
   return (
@@ -75,13 +72,30 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 <p className="text-red-500 dark:text-red-400 font-semibold text-lg text-center mt-2">
                   NO PROOF = NO COMPLETION
                 </p>
+                <p className="text-red-500 dark:text-red-400 font-semibold text-base text-center mt-3">
+                  📅 Proof pictures must show the date visible on screen via RuneLite plugin
+                </p>
+                
+                <div className={`mt-4 p-3 rounded-lg ${isDark ? "bg-yellow-900/30 border-yellow-600" : "bg-yellow-100 border-yellow-500"} border-2`}>
+                  <p className="font-semibold mb-2 text-center">📸 "Start Check" Tiles - Special Requirement:</p>
+                  <p className="mb-2 text-sm">Some tiles are marked with a <span className="px-2 py-1 rounded bg-yellow-600 text-white text-xs font-bold">START CHECK</span> badge. For these tiles:</p>
+                  <ul className="list-disc list-inside space-y-2 text-sm">
+                    <li><strong>Check your collection log BEFORE starting to grind</strong></li>
+                    <li><strong>If you already have the item in your clog:</strong> Take a picture showing the quantity BEFORE you start</li>
+                    <li><strong>Why?</strong> Low value items don't show in game chat, so we need proof the quantity increased</li>
+                    <li><strong>Post both:</strong> The start proof showing initial quantity (if applicable) AND completion proof showing the number increased</li>
+                  </ul>
+                </div>
               </div>
               
               <section>
                 <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Objective
+                  Objectives
                 </h3>
-                <p>Be the first team to reach tile 56 (the final tile) by completing tasks and strategically using powerups.</p>
+                <ol className="list-decimal list-inside space-y-2">
+                  <li><strong>Win the Race:</strong> Be the first team to reach tile 56 (the final tile) by completing tasks and strategically using powerups</li>
+                  <li><strong>Earn Top Rankings:</strong> The top 10 players with the most points will receive rewards</li>
+                </ol>
               </section>
 
               <section>
@@ -112,6 +126,13 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
 
               <section>
                 <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Claiming Powerups
+                </h3>
+                <p>When you claim a powerup tile, you earn points as specified in that powerup's instructions, in addition to receiving the powerup. Powerup tiles can have different claim types (each team once, first team only, or unlimited).</p>
+              </section>
+
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
                   Fog of War
                 </h3>
                 <p>Tiles are revealed progressively as teams advance. You can see a limited number of tiles ahead based on the farthest team's position.</p>
@@ -129,11 +150,29 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
                   Completing Tiles
                 </h3>
+                <p className="mb-2 font-bold text-red-600 dark:text-red-400">
+                  ⚠️ Always post your proof picture in Discord BEFORE clicking "Complete Tile"
+                </p>
                 <ul className="list-disc list-inside space-y-2">
                   <li>Click "Complete Tile" on your team card</li>
                   <li>Select which player(s) completed the task</li>
                   <li><strong>Min Completions:</strong> Minimum number of players required to complete (must select at least this many)</li>
                   <li><strong>Max Completions:</strong> Maximum number of players allowed to complete (cannot select more than this)</li>
+                  <li><strong>Multi-completion tiles:</strong> Unless it's a group tile, the same player can provide multiple completions</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  What Counts as a Completion?
+                </h3>
+                <p className="mb-2">A "completion" depends on the tile type and requirements:</p>
+                <ul className="list-disc list-inside space-y-2">
+                  <li><strong>Item-based tiles:</strong> Obtaining ONE of the items listed on the tile (e.g., if a tile lists "Dragon Warhammer OR 60k XP Chunk", getting either one counts as a completion)</li>
+                  <li><strong>XP-based tiles:</strong> A single XP chunk (example 60k XP) counts as one completion</li>
+                  <li><strong>Group tiles:</strong> Each person included in the group activity counts as one completion</li>
+                  <li><strong>Single-task tiles:</strong> One completion per tile unless doubled (then two completions required)</li>
+                  <li><strong>Set-based tiles:</strong> If a tile requires items from a set (e.g., Oathplate set), each piece of the set can only be used once as a completion</li>
                 </ul>
               </section>
 
@@ -156,7 +195,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                   <p className="font-semibold mt-3 mb-2">Doubled Tiles Exception:</p>
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>If a tile was originally single completion (maxCompletions = 1) and then doubled, it still uses difficulty-based points</li>
-                    <li>Example: Easy tile doubled from 1→2 completions still awards 1 point per player (difficulty-based)</li>
+                    <li>Example: Hard tile doubled from 1→2 completions still awards 3 points per completion (difficulty-based)</li>
                   </ul>
                 </div>
               </section>
@@ -167,7 +206,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 </h3>
                 <p>Tiles can be modified by powerups, indicated by badges:</p>
                 <ul className="space-y-2 mt-2">
-                  <li><span className="px-2 py-1 rounded bg-blue-600 text-white text-xs">Copied</span> - Task was copied from another tile</li>
+                  <li><span className="px-2 py-1 rounded bg-blue-600 text-white text-xs">📋</span> - Task was copied from another tile</li>
                   <li><span className="px-2 py-1 rounded bg-purple-600 text-white text-xs">🔄</span> - Task was changed from pool</li>
                   <li><span className="px-2 py-1 rounded bg-orange-600 text-white text-xs font-bold">2×</span> - Completion requirement doubled</li>
                 </ul>
@@ -180,7 +219,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 <ul className="list-disc list-inside space-y-1">
                   <li><strong>Final Tile (56):</strong> Always hard difficulty, cannot be modified</li>
                   <li><strong>Reward Tiles:</strong> Grant a powerup when completed</li>
-                  <li><strong>Pre-cleared Tiles:</strong> Can be skipped automatically (from certain powerups)</li>
                 </ul>
               </section>
 
@@ -193,7 +231,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
             </div>
           )}
 
-          {activeSection === "powerups" && (
+          {activeSection === "powerup-info" && (
             <div className="space-y-4">
               <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                 Powerup Mechanics
@@ -242,12 +280,8 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                   <li><strong>Unlimited:</strong> Any team can claim it multiple times</li>
                 </ul>
               </section>
-            </div>
-          )}
 
-          {activeSection === "powerup-info" && (
-            <div className="space-y-4">
-              <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+              <h2 className={`text-2xl font-bold mt-8 ${isDark ? "text-white" : "text-slate-900"}`}>
                 Complete Powerup Reference
               </h2>
               <p className="text-sm italic">Click on powerup names in-game to see descriptions</p>
@@ -313,7 +347,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                   <p className="font-semibold text-xs mt-2 mb-1">Special Mechanics:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
                     <li><strong>Retaliate:</strong> Can copy FROM doubled tiles to spread difficulty elsewhere</li>
-                    <li>Copied tiles show a blue "Copied" badge</li>
+                    <li>Copied tiles show a blue "📋" badge</li>
                     <li>Pasting preserves maxCompletions from source tile</li>
                     <li>Target tile inherits source difficulty (may upgrade easy→medium, etc.)</li>
                   </ul>
@@ -446,163 +480,96 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                   </ul>
                 </div>
               </section>
-            </div>
-          )}
 
-          {activeSection === "restrictions" && (
-            <div className="space-y-4">
-              <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                Tile Targeting Rules Summary
-              </h2>
-              <p className="text-sm italic">See "Powerup Reference" tab for complete powerup details</p>
+              {/* Tile Targeting Rules Summary */}
+              <section className="mt-8 pt-8 border-t-2 border-slate-600">
+                <h2 className={`text-2xl font-bold mb-4 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Tile Targeting Rules Summary
+                </h2>
 
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Copy and Paste Rules
-                </h3>
-                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
-                  <p className="font-semibold mb-2">✅ Can Target:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Clean tiles (no modifications)</li>
-                    <li>Tiles of equal or lower difficulty than your current tile</li>
-                    <li>Can copy FROM doubled tiles (retaliate!)</li>
-                  </ul>
-                  <p className="font-semibold mt-3 mb-2">❌ Cannot Target:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Tiles with teams standing on them</li>
-                    <li>Your current tile</li>
-                    <li>Higher difficulty tiles</li>
-                    <li>Tiles with reward powerups</li>
-                    <li>Changed tiles</li>
-                    <li>Doubled tiles (as paste target)</li>
-                  </ul>
+                <div className="space-y-4">
+                  <section>
+                    <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                      Copy and Paste Rules
+                    </h3>
+                    <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                      <p className="font-semibold mb-2">✅ Can Target:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Clean tiles (no modifications)</li>
+                        <li>Tiles of equal or lower difficulty than your current tile</li>
+                        <li>Can copy FROM doubled tiles (retaliate!)</li>
+                      </ul>
+                      <p className="font-semibold mt-3 mb-2">❌ Cannot Target:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Tiles with teams standing on them</li>
+                        <li>Your current tile</li>
+                        <li>Higher difficulty tiles</li>
+                        <li>Tiles with reward powerups</li>
+                        <li>Changed tiles</li>
+                        <li>Doubled tiles (as paste target)</li>
+                      </ul>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                      Change Tile Rules
+                    </h3>
+                    <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                      <p className="font-semibold mb-2">✅ Can Target:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Unmodified tiles (not copied, changed, or doubled)</li>
+                      </ul>
+                      <p className="font-semibold mt-3 mb-2">❌ Cannot Target:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Final tile (56)</li>
+                        <li>Tiles with teams on them</li>
+                        <li>Already changed tiles</li>
+                        <li>Copied tiles</li>
+                        <li>Doubled tiles</li>
+                      </ul>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                      Double Tile Rules
+                    </h3>
+                    <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                      <p className="font-semibold mb-2">✅ Can Target:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Tiles matching the powerup difficulty</li>
+                        <li>Copied tiles</li>
+                        <li>Changed tiles</li>
+                      </ul>
+                      <p className="font-semibold mt-3 mb-2">❌ Cannot Target:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Final tile (56)</li>
+                        <li>Already doubled tiles</li>
+                        <li>Tiles with teams on them</li>
+                      </ul>
+                      <p className="text-sm mt-3 font-semibold text-amber-500">⚠️ Once doubled, tiles are locked from all modifications!</p>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                      Stacking Rules
+                    </h3>
+                    <p><strong>Allowed:</strong></p>
+                    <ul className="list-disc list-inside space-y-1 text-sm mb-2">
+                      <li>Change Tile + Double Tile</li>
+                      <li>Copy and Paste → then later Double Tile</li>
+                      <li>Copy FROM doubled tile → Paste elsewhere</li>
+                    </ul>
+                    <p><strong>Not Allowed:</strong></p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      <li>Copy and Paste + Change Tile</li>
+                      <li>Same powerup type twice on one tile</li>
+                      <li>Any modification to doubled tiles</li>
+                    </ul>
+                  </section>
                 </div>
-              </section>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Change Tile Rules
-                </h3>
-                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
-                  <p className="font-semibold mb-2">✅ Can Target:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Unmodified tiles (not copied, changed, or doubled)</li>
-                  </ul>
-                  <p className="font-semibold mt-3 mb-2">❌ Cannot Target:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Final tile (56)</li>
-                    <li>Tiles with teams on them</li>
-                    <li>Already changed tiles</li>
-                    <li>Copied tiles</li>
-                    <li>Doubled tiles</li>
-                  </ul>
-                </div>
-              </section>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Double Tile Rules
-                </h3>
-                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
-                  <p className="font-semibold mb-2">✅ Can Target:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Tiles matching the powerup difficulty</li>
-                    <li>Copied tiles</li>
-                    <li>Changed tiles</li>
-                  </ul>
-                  <p className="font-semibold mt-3 mb-2">❌ Cannot Target:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Final tile (56)</li>
-                    <li>Already doubled tiles</li>
-                    <li>Tiles with teams on them</li>
-                  </ul>
-                  <p className="text-sm mt-3 font-semibold text-amber-500">⚠️ Once doubled, tiles are locked from all modifications!</p>
-                </div>
-              </section>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Stacking Rules
-                </h3>
-                <p><strong>Allowed:</strong></p>
-                <ul className="list-disc list-inside space-y-1 text-sm mb-2">
-                  <li>Change Tile + Double Tile</li>
-                  <li>Copy and Paste → then later Double Tile</li>
-                  <li>Copy FROM doubled tile → Paste elsewhere</li>
-                </ul>
-                <p><strong>Not Allowed:</strong></p>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>Copy and Paste + Change Tile</li>
-                  <li>Same powerup type twice on one tile</li>
-                  <li>Any modification to doubled tiles</li>
-                </ul>
-              </section>
-            </div>
-          )}
-
-          {activeSection === "strategy" && (
-            <div className="space-y-4">
-              <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                Strategy Tips
-              </h2>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Early Game
-                </h3>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Focus on claiming powerup tiles before opponents</li>
-                  <li>Build a diverse powerup inventory</li>
-                  <li>Save movement powerups for critical moments</li>
-                </ul>
-              </section>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Mid Game
-                </h3>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Use Copy and Paste on your easier current tiles to simplify future paths</li>
-                  <li>Consider doubling tiles ahead of opponents</li>
-                  <li>Use Back powerups to slow down leaders</li>
-                  <li>Build up Clear Cooldown powerups for powerup chains</li>
-                </ul>
-              </section>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Late Game
-                </h3>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Save Skip powerups for final push</li>
-                  <li>Watch for doubled tiles and plan routes around them</li>
-                  <li>Consider copying doubled tiles to mess with trailing teams</li>
-                  <li>Chain Clear Cooldown with multiple powerups for combos</li>
-                </ul>
-              </section>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Advanced Tactics
-                </h3>
-                <ul className="list-disc list-inside space-y-2">
-                  <li><strong>Retaliate Mechanic:</strong> If someone doubles a tile you need, copy it FROM that doubled tile to spread the difficulty elsewhere</li>
-                  <li><strong>Powerup Combos:</strong> Use Clear Cooldown to chain multiple powerups in succession</li>
-                  <li><strong>Defensive Doubling:</strong> Double tiles behind you to slow down catching teams</li>
-                  <li><strong>Task Pool Strategy:</strong> Change tiles strategically when you know easier tasks exist in the pool</li>
-                  <li><strong>Timing:</strong> Save powerful powerups for when opponents are most vulnerable</li>
-                </ul>
-              </section>
-
-              <section>
-                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Team Coordination
-                </h3>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Assign different players to different difficulty tiles based on skill</li>
-                  <li>Share points strategically to level up all team members</li>
-                  <li>Coordinate powerup usage for maximum impact</li>
-                </ul>
               </section>
             </div>
           )}

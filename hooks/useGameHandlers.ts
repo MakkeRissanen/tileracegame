@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Team } from "@/types/game";
+import { Team, GameState } from "@/types/game";
 
 interface UseGameHandlersProps {
   dispatch: (event: any) => Promise<void>;
@@ -11,6 +11,8 @@ interface UseGameHandlersProps {
   setShowGradientSettingsModal: (show: boolean) => void;
   setShowAdminOptions: (show: boolean) => void;
   setIsAdmin: (isAdmin: boolean) => void;
+  game: GameState;
+  adminName: string | null;
 }
 
 export function useGameHandlers({
@@ -23,6 +25,8 @@ export function useGameHandlers({
   setShowGradientSettingsModal,
   setShowAdminOptions,
   setIsAdmin,
+  game,
+  adminName,
 }: UseGameHandlersProps) {
   const handleSelectTeam = useCallback((team: Team, password: string) => {
     if (team.password === password) {
@@ -51,13 +55,14 @@ export function useGameHandlers({
     }
   }, [dispatch]);
 
-  const handleClaimPowerupSubmit = useCallback(async (tileId: number, playerNames: string[]) => {
+  const handleClaimPowerupSubmit = useCallback(async (tileId: number, playerNames: string[], adminName?: string) => {
     try {
       await dispatch({
         type: "CLAIM_POWERUP_TILE",
         teamId: "", // Will be filled by caller
         powerTileId: tileId,
         playerNames,
+        ...(adminName && { adminName }),
       });
     } catch (err) {
       alert(`Failed to claim powerup: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -126,13 +131,13 @@ export function useGameHandlers({
       await dispatch({
         type: "ADMIN_APPLY_DRAFT_TEAMS",
         teams,
-        adminName: "Admin",
+        adminName: adminName || undefined,
       });
       setShowFormTeamsModal(false);
     } catch (err) {
       alert(`Failed to apply draft: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-  }, [dispatch, setShowFormTeamsModal]);
+  }, [dispatch, setShowFormTeamsModal, adminName]);
 
   const handleDisableFogOfWar = useCallback(async (mode: "none" | "admin" | "all") => {
     try {
@@ -145,7 +150,7 @@ export function useGameHandlers({
     }
   }, [dispatch]);
 
-  const handleImportTasks = useCallback(async (tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }[]) => {
+  const handleImportTasks = useCallback(async (tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string; startProofNeeded?: boolean }[]) => {
     try {
       await dispatch({
         type: "ADMIN_IMPORT_POOL_TASKS",
@@ -223,22 +228,95 @@ export function useGameHandlers({
         type: "SET_TEAM_PASSWORD",
         teamId,
         password,
-        adminName: "Admin",
+        adminName: adminName || undefined,
       });
     } catch (err) {
       alert(`Failed to set team password: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-  }, [dispatch]);
+  }, [dispatch, adminName]);
 
-  const handleUndo = useCallback(async () => {
+  const handleUndo = useCallback(async (adminName?: string, targetIndex?: number) => {
     try {
+      // Extract information about what's being undone
+      const history = game.eventHistory || [];
+      if (history.length === 0) {
+        alert("Nothing to undo - no history available");
+        return;
+      }
+      
+      let undoneMessage: string;
+      let targetState: GameState;
+      
+      if (targetIndex !== undefined && targetIndex >= 0 && targetIndex < history.length) {
+        // Undo to specific point - collect all actions being undone
+        targetState = history[targetIndex];
+        
+        // Collect all log messages between target state and current state
+        const undoneActions: string[] = [];
+        const targetLogIds = new Set(targetState.log?.map(l => l.id) || []);
+        
+        // Get all logs from current state that aren't in target state
+        if (game.log) {
+          for (const log of game.log) {
+            if (!targetLogIds.has(log.id)) {
+              // Strip undo prefixes and admin names to get clean action
+              let cleanMessage = log.message;
+              // Remove undo prefix
+              while (cleanMessage.startsWith("⎌ Undid: ")) {
+                cleanMessage = cleanMessage.substring("⎌ Undid: ".length);
+              }
+              // Remove admin name prefix
+              const adminPrefixMatch = cleanMessage.match(/^\[([^\]]+)\]\n/);
+              if (adminPrefixMatch) {
+                cleanMessage = cleanMessage.substring(adminPrefixMatch[0].length);
+              }
+              undoneActions.push(cleanMessage);
+            }
+          }
+        }
+        
+        // Reverse to show in chronological order (oldest first)
+        undoneActions.reverse();
+        
+        const numActionsUndone = undoneActions.length;
+        if (numActionsUndone > 0) {
+          undoneMessage = `${numActionsUndone} action(s):\n${undoneActions.map((action, i) => `${i + 1}. ${action}`).join('\n')}`;
+        } else {
+          undoneMessage = `${history.length - targetIndex} action(s) to restore earlier state`;
+        }
+      } else {
+        // Undo last action
+        undoneMessage = game.log && game.log.length > 0 
+          ? game.log[0].message 
+          : "last action";
+        targetState = history[history.length - 1];
+      }
+      
+      // Find affected teams by comparing current state to target state
+      const affectedTeamIds: string[] = [];
+      
+      game.teams.forEach((currentTeam, idx) => {
+        const targetTeam = targetState.teams[idx];
+        if (targetTeam && (
+          currentTeam.pos !== targetTeam.pos ||
+          JSON.stringify(currentTeam.playerPoints) !== JSON.stringify(targetTeam.playerPoints) ||
+          currentTeam.inventory?.length !== targetTeam.inventory?.length
+        )) {
+          affectedTeamIds.push(currentTeam.id);
+        }
+      });
+      
       await dispatch({
         type: "ADMIN_UNDO",
+        ...(adminName && { adminName }),
+        undoneMessage,
+        affectedTeamIds,
+        ...(targetIndex !== undefined && { targetHistoryIndex: targetIndex }),
       });
     } catch (err) {
       alert(`Failed to undo: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-  }, [dispatch]);
+  }, [dispatch, game]);
 
   const handleGradientSettings = useCallback(async (
     weights: { easy: number; medium: number; hard: number },

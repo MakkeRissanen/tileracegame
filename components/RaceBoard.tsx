@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, memo } from "react";
+import Image from "next/image";
 import { GameState, Team, RaceTile } from "@/types/game";
 import { Modal, Button } from "./ui";
 import { diffTint } from "@/lib/gameUtils";
@@ -119,6 +120,13 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
           {tile.n}
         </div>
 
+        {/* Start Proof Needed Indicator */}
+        {revealed && tile.startProofNeeded && (
+          <div className={`absolute top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-[10px] font-bold ${isDark ? "bg-yellow-900/80 text-yellow-100" : "bg-yellow-300 text-yellow-900"}`}>
+            START CHECK
+          </div>
+        )}
+
         {/* Powerup Badge */}
         {revealed && tile.rewardPowerupId && (
           <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold ${isDark ? "bg-yellow-900/60 text-yellow-100" : "bg-yellow-200 text-yellow-900"}`}>
@@ -136,10 +144,13 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
             <>
               {tile.image && (
                 <div className="drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">
-                  <img
+                  <Image
                     src={tile.image}
                     alt=""
+                    width={80}
+                    height={80}
                     className="w-20 h-20 object-contain mb-2"
+                    unoptimized
                   />
                 </div>
               )}
@@ -157,17 +168,17 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
         {revealed && (
           <div className="absolute bottom-12 right-1 flex gap-1">
             {game.copyPasteTiles?.includes(tile.n) && (
-              <span className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow-lg border-2 ${isDark ? "bg-blue-600 text-white border-blue-400" : "bg-blue-500 text-white border-blue-300"}`}>
-                Copied
+              <span title="Task was copied from another tile" className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-blue-600 text-white border-blue-400" : "bg-blue-500 text-white border-blue-300"}`}>
+                📋
               </span>
             )}
             {game.changedTiles?.includes(tile.n) && (
-              <span className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow-lg border-2 ${isDark ? "bg-purple-600 text-white border-purple-400" : "bg-purple-500 text-white border-purple-300"}`}>
-                Changed
+              <span title="Task was changed from pool" className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-purple-600 text-white border-purple-400" : "bg-purple-500 text-white border-purple-300"}`}>
+                🔄
               </span>
             )}
             {game.doubledTiles?.includes(tile.n) && (
-              <span className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-orange-600 text-white border-orange-400" : "bg-orange-500 text-white border-orange-300"}`}>
+              <span title="Completion requirement doubled" className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-orange-600 text-white border-orange-400" : "bg-orange-500 text-white border-orange-300"}`}>
                 2×
               </span>
             )}
@@ -229,10 +240,13 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
             <div className={`rounded-xl border-2 p-4 ${diffTint(selectedTile.difficulty, isDark)}`}>
               <div className="flex flex-col items-center">
                 {selectedTile.image && (
-                  <img
+                  <Image
                     src={selectedTile.image}
                     alt={selectedTile.label}
+                    width={128}
+                    height={128}
                     className="w-32 h-32 object-contain mb-3"
+                    unoptimized
                   />
                 )}
                 <p className="text-center text-lg font-semibold mb-2">
@@ -286,7 +300,7 @@ export default memo(RaceBoard, (prevProps, nextProps) => {
     prevProps.game.raceTiles === nextProps.game.raceTiles &&
     prevProps.game.revealedTiles === nextProps.game.revealedTiles &&
     prevProps.game.fogOfWarDisabled === nextProps.game.fogOfWarDisabled &&
-    JSON.stringify(prevProps.game.teams.map(t => ({ id: t.id, pos: t.pos, name: t.name }))) === 
-    JSON.stringify(nextProps.game.teams.map(t => ({ id: t.id, pos: t.pos, name: t.name })))
+    JSON.stringify(prevProps.game.teams?.map(t => ({ id: t.id, pos: t.pos, name: t.name }))) === 
+    JSON.stringify(nextProps.game.teams?.map(t => ({ id: t.id, pos: t.pos, name: t.name })))
   );
 });

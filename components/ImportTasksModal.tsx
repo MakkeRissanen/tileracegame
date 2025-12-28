@@ -6,7 +6,7 @@ import { Modal, Button } from "./ui";
 interface ImportTasksModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }[]) => void;
+  onImport: (tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string; startProofNeeded?: boolean }[]) => void;
   isDark: boolean;
 }
 
@@ -18,7 +18,7 @@ export default function ImportTasksModal({
 }: ImportTasksModalProps) {
   const [rawInput, setRawInput] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }[] | null>(null);
+  const [preview, setPreview] = useState<{ difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string; startProofNeeded?: boolean }[] | null>(null);
 
   const handleParse = () => {
     setParseError(null);
@@ -31,7 +31,7 @@ export default function ImportTasksModal({
 
     try {
       const lines = rawInput.trim().split("\n");
-      const tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }[] = [];
+      const tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string; startProofNeeded?: boolean }[] = [];
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -93,6 +93,9 @@ export default function ImportTasksModal({
           return;
         }
 
+        // Start log proof needed - optional, defaults to false
+        const startProofNeeded = parts[6] ? parts[6].trim().toLowerCase() === "yes" : false;
+
         tasks.push({
           difficulty,
           label,
@@ -100,6 +103,7 @@ export default function ImportTasksModal({
           minCompletions,
           instructions,
           image,
+          startProofNeeded,
         });
       }
 
@@ -162,14 +166,14 @@ export default function ImportTasksModal({
           </p>
           <div className={`text-xs font-mono p-3 rounded-lg ${isDark ? "bg-slate-900 text-slate-300" : "bg-slate-100 text-slate-700"}`}>
             <div className="font-semibold mb-1">Format:</div>
-            <div>task, difficulty, max completions, min completions, instructions, url</div>
+            <div>task, difficulty, max completions, min completions, instructions, url, start log proof needed</div>
             <div className="mt-2 font-semibold">Example:</div>
-            <div>Complete a coding challenge, 1, 3, 1, Solve any LeetCode problem, https://example.com/image.png</div>
-            <div>Team presentation, 2, 2, 2, Present your project to the group, </div>
-            <div>Build a feature, 3, 1, 1, Implement a new feature from scratch, </div>
+            <div>Complete a coding challenge, 1, 3, 1, Solve any LeetCode problem, https://example.com/image.png, yes</div>
+            <div>Team presentation, 2, 2, 2, Present your project to the group, , no</div>
+            <div>Build a feature, 3, 1, 1, Implement a new feature from scratch, , </div>
           </div>
           <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Note: Task and difficulty are required. Difficulty: 1 (Easy), 2 (Medium), 3 (Hard). Max/min completions default to 1 if empty. Instructions default to "No further instructions given." if empty. URL is required.
+            Note: Task and difficulty are required. Difficulty: 1 (Easy), 2 (Medium), 3 (Hard). Max/min completions default to 1 if empty. Instructions default to "No further instructions given." if empty. URL is required. Start log proof needed: "yes" or "no" (defaults to no if empty).
           </p>
         </div>
 
@@ -250,6 +254,11 @@ export default function ImportTasksModal({
                         {task.image && (
                           <p className={`text-xs mt-1 font-mono ${isDark ? "text-slate-500" : "text-slate-500"}`}>
                             🖼️ {task.image}
+                          </p>
+                        )}
+                        {task.startProofNeeded && (
+                          <p className={`text-xs mt-1 font-semibold ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
+                            📸 Start log proof needed
                           </p>
                         )}
                       </div>

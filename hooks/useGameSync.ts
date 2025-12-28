@@ -37,9 +37,8 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
       try {
         const data = snapshot.val();
         if (data) {
-          // Only update if we don't have a pending optimistic update
-          // or if this is clearly a newer server state
-          if (!optimisticState.current || processingEvent.current === false) {
+          // Only update if we don't have a pending optimistic update in progress
+          if (!processingEvent.current) {
             setGame(data);
             lastServerTimestamp.current = Date.now();
           }
@@ -88,7 +87,15 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
     try {
       const gameRef = ref(database, `games/${gameId}`);
       
-      // Apply optimistic update immediately
+      // Apply immediate optimistic update for instant UI feedback
+      const currentState = game;
+      const validationCheck = validateEvent(currentState, event);
+      if (validationCheck.valid) {
+        const immediateOptimistic = applyEvent(currentState, event);
+        optimisticState.current = immediateOptimistic;
+        setGame(immediateOptimistic);
+      }
+      
       let optimisticNewState: GameState | null = null;
       
       // Use Firebase transaction for atomic operation
@@ -112,28 +119,29 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
         optimisticNewState = newState;
         return newState;
       }, {
-        applyLocally: false, // Don't let Firebase apply locally - we'll do it manually
+        applyLocally: true, // Let Firebase apply optimistically for faster UI
       });
 
       if (result.committed && optimisticNewState) {
-        // Transaction succeeded - apply optimistic update
-        optimisticState.current = optimisticNewState;
+        // Transaction succeeded - update state and clear optimistic flag
         setGame(optimisticNewState);
+        optimisticState.current = null;
+        lastServerTimestamp.current = Date.now();
         
         // Send event to Discord (async, non-blocking) with game state for team name lookup
         sendEventToDiscord(event, optimisticNewState as GameState).catch(err => 
           console.error("Discord webhook failed:", err)
         );
         
-        // Clear optimistic state after a short delay to allow server sync
-        setTimeout(() => {
-          optimisticState.current = null;
-        }, 100);
-        
         resolve();
       } else {
-        // Transaction aborted (validation failed or conflict)
+        // Transaction aborted (validation failed or conflict) - rollback optimistic update
         optimisticState.current = null;
+        // Force refresh from server to get correct state
+        const snapshot = await result.snapshot;
+        if (snapshot.val()) {
+          setGame(snapshot.val());
+        }
         reject(new Error(validationReason || "Event validation failed or conflict detected"));
       }
 
@@ -198,11 +206,6 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
 
           const inventory = team.inventory || [];
           if (!inventory.includes(event.powerupId)) {
-            console.log("Powerup validation failed:", {
-              powerupId: event.powerupId,
-              inventory: inventory,
-              teamName: team.name
-            });
             return { valid: false, reason: `Team doesn't have this powerup (has: ${inventory.join(", ")})` };
           }
 

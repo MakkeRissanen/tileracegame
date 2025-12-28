@@ -84,6 +84,7 @@ export function initialGame(): GameState {
     usedPoolTaskIds: [],
     changedTiles: [],
     copyPasteTiles: [],
+    copiedFromTiles: [],
     doubledTiles: [],
     doubledTilesInfo: {},
     revealedTiles: [1, 2, 3, 4, 5, 6, 7, 8],
@@ -107,9 +108,9 @@ export function addLog(
   message: string,
   adminName: string | null = null
 ): GameState {
-  const finalMessage = adminName ? `[${adminName}] ${message}` : message;
+  const finalMessage = adminName ? `[${adminName}]\n${message}` : message;
   const entry: LogEntry = { id: uid(), ts: Date.now(), message: finalMessage };
-  const log = [entry, ...(game.log || [])].slice(0, 200);
+  const log = [entry, ...(game.log || [])].slice(0, 50);
   return { ...game, log };
 }
 

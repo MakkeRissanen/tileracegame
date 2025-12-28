@@ -12,8 +12,12 @@ export default function EventLog({ game, isDark }: EventLogProps) {
     const teams = game.teams || [];
     const teamNames = teams.map((t) => t.name);
 
-    // Check if this is an admin action (don't colorize team names)
-    const isAdminAction = message.includes('👑') || message.includes('Admin') || message.includes('admin') || message.includes('set') && message.includes('tile');
+    // Check if this is an admin management action (don't colorize team names for these)
+    // But DO colorize for admin tile completions (when admin completes for a team)
+    const isAdminManagementAction = message.includes('Admin created team') || 
+                                    message.includes('Admin updated team') || 
+                                    message.includes('Password set for') ||
+                                    message.includes('👑');
 
     // Parse structured completion messages
     const completionMatch = message.match(/^(.+?),\s*(.+?)\s+completed\s+(.+?)\s+\((.+?)\)\s+→\s+Current:\s+(.+)$/);
@@ -78,8 +82,8 @@ export default function EventLog({ game, isDark }: EventLogProps) {
       );
     }
 
-    // Fast path: no teams yet, or admin action - just render text
-    if (!teamNames.length || isAdminAction) {
+    // Fast path: no teams yet, or admin management action - just render text
+    if (!teamNames.length || isAdminManagementAction) {
       const lines = message.split('\n');
       return (
         <div className={`rounded-lg p-2 text-xs leading-relaxed ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>

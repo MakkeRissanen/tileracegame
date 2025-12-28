@@ -10,6 +10,7 @@ export interface RaceTile {
   image: string;
   maxCompletions: number;
   minCompletions: number;
+  startProofNeeded?: boolean;
 }
 
 export interface PowerupTile {
@@ -33,6 +34,7 @@ export interface PoolTask {
   maxCompletions?: number;
   minCompletions?: number;
   used: boolean;
+  startProofNeeded?: boolean;
 }
 
 export interface Team {
@@ -75,6 +77,7 @@ export interface GameState {
   usedPoolTaskIds: string[];
   changedTiles: number[];
   copyPasteTiles: number[];
+  copiedFromTiles: number[];
   doubledTiles: number[];
   doubledTilesInfo: Record<number, { useDifficultyPoints: boolean }>;
   revealedTiles: number[];
@@ -118,9 +121,9 @@ export const POWERUP_DEFS: PowerupDef[] = [
 
 // Game Events
 export type GameEvent =
-  | { type: "RESET_ALL" }
+  | { type: "RESET_ALL"; adminName?: string }
   | { type: "ADD_TEAM"; name: string; adminName?: string }
-  | { type: "REMOVE_TEAM"; teamId: string }
+  | { type: "REMOVE_TEAM"; teamId: string; adminName?: string }
   | { type: "COMPLETE_TILE"; teamId: string; playerNames: string[]; adminName?: string }
   | { type: "USE_COPY_CHOICE"; teamId: string }
   | {
@@ -139,6 +142,10 @@ export type GameEvent =
       changeTaskId?: string;
       targetPowerupId?: string;
       adminName?: string;
+      oldTaskLabel?: string;
+      newTaskLabel?: string;
+      fromTileNumber?: number;
+      toTileNumber?: number;
     }
   | {
       type: "ADMIN_EDIT_RACE_TILE";
@@ -192,7 +199,7 @@ export type GameEvent =
   | { type: "ADMIN_CLEAR_POWERUP_TILES" }
   | { type: "ADMIN_IMPORT_TASKS"; data: string }
   | { type: "ADMIN_IMPORT_TILES"; tiles: RaceTile[] }
-  | { type: "ADMIN_IMPORT_POOL_TASKS"; tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }[] }
+  | { type: "ADMIN_IMPORT_POOL_TASKS"; tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string; startProofNeeded?: boolean }[] }
   | { type: "ADMIN_IMPORT_POWERUPS"; powerups: Array<{ powerupType: string; label: string; pointsPerCompletion: number; maxCompletions: number; minCompletions: number; claimType: "eachTeam" | "firstTeam" | "unlimited"; instructions: string; image: string }> }
   | { type: "ADMIN_RANDOMIZE_BOARD" }
   | { type: "ADMIN_RANDOMIZE_TILES" }
@@ -204,9 +211,9 @@ export type GameEvent =
   | { type: "ADMIN_REMOVE_ADMIN"; adminId: string }
   | { type: "ADMIN_CHANGE_PASSWORD"; oldPassword: string; newPassword: string }
   | { type: "ADMIN_SET_ALL_TEAM_PASSWORDS"; password: string }
-  | { type: "ADMIN_UNDO" }
+  | { type: "ADMIN_UNDO"; adminName?: string; undoneMessage?: string; affectedTeamIds?: string[]; targetHistoryIndex?: number }
   | { type: "ADMIN_APPLY_DRAFT_TEAMS"; teams: Array<{ name: string; captain: string; members: string[] }>; adminName?: string }
-  | { type: "ADMIN_UPDATE_TEAM"; teamId: string; updates: Partial<Team> }
+  | { type: "ADMIN_UPDATE_TEAM"; teamId: string; updates: Partial<Team>; adminName?: string; changes?: string[] }
   | { type: "ADMIN_UPDATE_POWERUP_TILE"; tileId: number; updates: Partial<PowerupTile>; teamClaims?: Array<{ teamId: string; claimed: boolean }> }
   | { type: "ADMIN_UPDATE_POOL_TASK"; taskId: string; updates: Partial<PoolTask> }
   | { type: "ADMIN_TOGGLE_COOLDOWN"; teamId: string; adminName?: string };

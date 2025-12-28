@@ -34,6 +34,7 @@ export default function UsePowerupModal({
   const revealedTiles = new Set(game.revealedTiles || []);
   const changedTiles = new Set(game.changedTiles || []);
   const copyPasteTiles = new Set(game.copyPasteTiles || []);
+  const copiedFromTiles = new Set(game.copiedFromTiles || []);
   const doubledTiles = new Set(
     Object.keys(game.doubledTilesInfo || {}).map((k) => Number(k))
   );
@@ -303,6 +304,20 @@ export default function UsePowerupModal({
               {powerupDef.description}
             </div>
           )}
+          
+          {/* Warning for copy-paste from already copied tile */}
+          {selectedPowerup === "copypaste" && copiedFromTiles.has(team.pos) && (
+            <div className={`mt-2 p-3 rounded-lg text-sm border-2 ${isDark ? 'bg-red-900/30 text-red-300 border-red-600' : 'bg-red-100 text-red-800 border-red-400'}`}>
+              ⚠️ Cannot copy from Tile {team.pos} - it has already been copied from once.
+            </div>
+          )}
+          
+          {/* Warning for copy-paste from pasted tile */}
+          {selectedPowerup === "copypaste" && copyPasteTiles.has(team.pos) && (
+            <div className={`mt-2 p-3 rounded-lg text-sm border-2 ${isDark ? 'bg-red-900/30 text-red-300 border-red-600' : 'bg-red-100 text-red-800 border-red-400'}`}>
+              ⚠️ Cannot copy from Tile {team.pos} - it was pasted to and cannot be copied from.
+            </div>
+          )}
         </div>
 
         {/* Target Team Selection */}
@@ -378,6 +393,33 @@ export default function UsePowerupModal({
                     </option>
                   );
                 })}
+            </select>
+          </div>
+        )}
+
+        {/* Change Task Selection - Show before tile picker when tile is selected */}
+        {selectedPowerup === "changeTile" && selectedTile !== null && (
+          <div className="mb-4 p-4 rounded-lg border-2 shadow-xl" style={{
+            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+            borderColor: isDark ? '#3b82f6' : '#2563eb'
+          }}>
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+              Replace with (unused task from pool)
+            </label>
+            <select
+              value={changeTaskId}
+              onChange={(e) => setChangeTaskId(e.target.value)}
+              className={selectClass(isDark)}
+              disabled={availableTasks.length === 0}
+            >
+              <option value="">
+                {availableTasks.length === 0 ? "No unused tasks available" : "Choose a task..."}
+              </option>
+              {availableTasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.label}
+                </option>
+              ))}
             </select>
           </div>
         )}
@@ -486,17 +528,17 @@ export default function UsePowerupModal({
                             {isRevealed && (
                               <div className="absolute bottom-1 right-1 flex gap-1">
                                 {copyPasteTiles.has(tileN) && (
-                                  <span className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow-lg border-2 ${isDark ? "bg-blue-600 text-white border-blue-400" : "bg-blue-500 text-white border-blue-300"}`}>
-                                    Copied
+                                  <span title="Task was copied from another tile" className={`px-2 py-1 rounded-lg text-[10px] font-bold shadow-lg border-2 ${isDark ? "bg-blue-600 text-white border-blue-400" : "bg-blue-500 text-white border-blue-300"}`}>
+                                    📋
                                   </span>
                                 )}
                                 {changedTiles.has(tileN) && (
-                                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg border-2 ${isDark ? "bg-purple-600 text-white border-purple-400" : "bg-purple-500 text-white border-purple-300"}`}>
+                                  <span title="Task was changed from pool" className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg border-2 ${isDark ? "bg-purple-600 text-white border-purple-400" : "bg-purple-500 text-white border-purple-300"}`}>
                                     🔄
                                   </span>
                                 )}
                                 {doubledTiles.has(tileN) && (
-                                  <span className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-orange-600 text-white border-orange-400" : "bg-orange-500 text-white border-orange-300"}`}>
+                                  <span title="Completion requirement doubled" className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-orange-600 text-white border-orange-400" : "bg-orange-500 text-white border-orange-300"}`}>
                                     2×
                                   </span>
                                 )}
@@ -537,30 +579,6 @@ export default function UsePowerupModal({
               </div>
             </div>
           )}
-
-        {/* Change Task Selection */}
-        {selectedPowerup === "changeTile" && selectedTile !== null && (
-          <div className="relative z-20 mb-2">
-            <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-              Replace with (unused task from pool)
-            </label>
-            <select
-              value={changeTaskId}
-              onChange={(e) => setChangeTaskId(e.target.value)}
-              className={selectClass(isDark)}
-              disabled={availableTasks.length === 0}
-            >
-              <option value="">
-                {availableTasks.length === 0 ? "No unused tasks available" : "Choose a task..."}
-              </option>
-              {availableTasks.map((task) => (
-                <option key={task.id} value={task.id}>
-                  {task.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         </div>
 

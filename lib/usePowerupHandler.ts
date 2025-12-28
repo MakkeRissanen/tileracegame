@@ -40,6 +40,10 @@ export function handleUsePowerup(
     changeTaskId?: string;
     targetPowerupId?: string;
     adminName?: string;
+    oldTaskLabel?: string;
+    newTaskLabel?: string;
+    fromTileNumber?: number;
+    toTileNumber?: number;
   }
 ): GameState {
   const { teamId, powerupId, targetId, futureTile, changeTaskId, targetPowerupId, adminName } = event;
@@ -76,15 +80,19 @@ export function handleUsePowerup(
     let next = consumePowerup(game, teamId, powerupId);
     const teams = next.teams.map((t) => (t.id === teamId ? { ...t, pos: dest } : t));
     next = { ...next, teams };
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} (from ${tileDesc(
+      `${team.name} used ${powerupLabel(powerupId)} (from ${tileDesc(
         next,
         before
       )} → Current: ${tileDesc(next, dest)})`,
       adminName
     );
+    // Store from/to tile numbers for Discord
+    if (event.fromTileNumber === undefined) {
+      (next as any)._lastEventFromTile = before;
+      (next as any)._lastEventToTile = dest;
+    }
     return next;
   }
 
@@ -105,10 +113,9 @@ export function handleUsePowerup(
       t.id === target.id ? { ...t, pos: dest, powerupCooldown: true } : t
     );
     next = { ...next, teams };
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on ${target.name} (from ${tileDesc(
+      `${team.name} used ${powerupLabel(powerupId)} on ${target.name} (from ${tileDesc(
         next,
         before
       )} → Current: ${tileDesc(next, dest)})`,
@@ -122,6 +129,24 @@ export function handleUsePowerup(
     const tileN = Number(futureTile);
     if (!Number.isFinite(tileN) || tileN < 2 || tileN > MAX_TILE || tileN === team.pos) {
       return addLog(game, `Invalid tile for copypaste.`);
+    }
+
+    // Check if current tile has already been copied from
+    const copiedFromTiles = new Set(game.copiedFromTiles || []);
+    if (copiedFromTiles.has(team.pos)) {
+      return addLog(
+        game,
+        `${team.name} cannot copy from Tile ${team.pos} because it has already been copied from.`
+      );
+    }
+
+    // Check if current tile was a paste destination (cannot copy from pasted tiles)
+    const copyPasteTilesSet = new Set(game.copyPasteTiles || []);
+    if (copyPasteTilesSet.has(team.pos)) {
+      return addLog(
+        game,
+        `${team.name} cannot copy from Tile ${team.pos} because it was pasted to and cannot be copied again.`
+      );
     }
 
     const destTile = getRaceTile(game, tileN);
@@ -182,11 +207,14 @@ export function handleUsePowerup(
       new Set([...(next.copyPasteTiles || []), tileN])
     );
     
-    next = { ...next, raceTiles, teams, copyPasteTiles };
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
+    const copiedFromTilesArr = Array.from(
+      new Set([...(next.copiedFromTiles || []), team.pos])
+    );
+    
+    next = { ...next, raceTiles, teams, copyPasteTiles, copiedFromTiles: copiedFromTilesArr };
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(
+      `${team.name} used ${powerupLabel(
         powerupId
       )} (Tile ${tileN}: "${beforeLabel}" → "${sourceTile.label}" from ${tileDesc(
         next,
@@ -267,10 +295,9 @@ export function handleUsePowerup(
     );
 
     next = { ...next, raceTiles, usedPoolTaskIds, changedTiles: changedTilesArr };
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on Tile ${tileN} (D${diff}) → "${beforeLabel}" → "${
+      `${team.name} used ${powerupLabel(powerupId)} on Tile ${tileN} (D${diff}) → "${beforeLabel}" → "${
         chosen.label
       }"`,
       adminName
@@ -285,11 +312,9 @@ export function handleUsePowerup(
       t.id === teamId ? { ...t, powerupCooldown: false } : t
     );
     next = { ...next, teams };
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} → cooldown cleared`,
-      adminName
+      `${team.name} used ${powerupLabel(powerupId)} → cooldown cleared`
     );
     return next;
   }
@@ -318,10 +343,9 @@ export function handleUsePowerup(
       return { ...t, inventory: nextInv };
     });
     next = { ...next, teams };
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on ${
+      `${team.name} used ${powerupLabel(powerupId)} on ${
         target.name
       } → removed ${powerupLabel(targetPowerupId)}`,
       adminName
@@ -340,10 +364,9 @@ export function handleUsePowerup(
       return { ...t, inventory: [...(t.inventory || []), targetPowerupId] };
     });
     next = { ...next, teams };
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} → doubled ${powerupLabel(
+      `${team.name} used ${powerupLabel(powerupId)} → doubled ${powerupLabel(
         targetPowerupId
       )}`,
       adminName
@@ -423,10 +446,9 @@ export function handleUsePowerup(
       doubledTilesInfo: newDoubledTilesInfo,
     };
     const updatedTile = raceTiles.find((t) => t.n === tileN);
-    const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on ${tileDesc(
+      `${team.name} used ${powerupLabel(powerupId)} on ${tileDesc(
         next,
         tileN
       )} → requirement doubled to ${updatedTile?.maxCompletions} (min: ${

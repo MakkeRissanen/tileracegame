@@ -23,7 +23,7 @@ import {
 } from "./gameUtils";
 import { handleUsePowerup } from "./usePowerupHandler";
 
-const MAX_HISTORY_SIZE = 50; // Limit history to prevent memory issues
+const MAX_HISTORY_SIZE = 10; // Limit history to prevent memory issues
 
 /**
  * Save current state to history before applying event
@@ -112,7 +112,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           t.id === event.teamId ? { ...t, password: event.password } : t
         );
         let next = { ...game, teams };
-        next = addLog(next, `Password set for team ID ${event.teamId}`, event.adminName);
+        next = addLog(next, `Password set for team ID ${event.teamId}`);
         return next;
       }
 
@@ -233,17 +233,17 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         // Determine vision range based on position
         let visionAhead;
         if (farthestPos >= MAX_TILE - 5) {
-          // Last 5 tiles: 1 tile ahead
-          visionAhead = 1;
-        } else if (farthestPos >= MAX_TILE - 10) {
-          // Last 10 tiles (before final 5): 2 tiles ahead
+          // Last 5 tiles: 2 tiles ahead
           visionAhead = 2;
-        } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
-          // Halfway point: 3 tiles ahead
+        } else if (farthestPos >= MAX_TILE - 15) {
+          // Last 15 tiles (before final 5): 3 tiles ahead
           visionAhead = 3;
-        } else {
-          // Normal: 4 tiles ahead
+        } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
+          // Halfway point: 4 tiles ahead
           visionAhead = 4;
+        } else {
+          // Normal: 5 tiles ahead
+          visionAhead = 5;
         }
 
         // Reveal tiles from farthest position up to vision range (only add, never remove)
@@ -267,7 +267,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const isDoubledTile = doubledTilesInfoScoring[completedTile] ? true : false;
         const doubledText = isDoubledTile ? "doubled " : "";
 
-        // Format player completions as list with emojis
+        // Format player completions as list
         const playerCompletionsList = playerNames.map(p => `⭐ ${p} - ${pointsForDiff} pt${pointsForDiff !== 1 ? 's' : ''}`).join('\n');
         
         if (completedTile === MAX_TILE) {
@@ -278,12 +278,12 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             : `🏆🎉 ${team.name} completed the ${doubledText}Final Tile! WINNERS! 🏆🎉\n${playerCompletionsList}${
                 rewardRes.granted ? `\n⚡ Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
               }`;
-          next = addLog(next, message, event.adminName);
+          next = addLog(next, message);
         } else if (nextPos === completedTile) {
           const message = event.adminName
             ? `[${event.adminName}]\n${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`
             : `${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`;
-          next = addLog(next, message, event.adminName);
+          next = addLog(next, message);
         } else {
           const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
           const baseMessage = `${adminPrefix}${team.name} completed ${doubledText}Tile ${completedTile}:\n"${completedLabel}"\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`;
@@ -291,8 +291,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           
           next = addLog(
             next,
-            rewardMessage ? `${baseMessage}\n${rewardMessage}` : baseMessage,
-            event.adminName
+            rewardMessage ? `${baseMessage}\n${rewardMessage}` : baseMessage
           );
         }
         return next;
@@ -368,29 +367,32 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         }
 
         const pointsPerCompletion = tile.pointsPerCompletion || 1;
-        const playerPoints = { ...(game.playerPoints || {}) };
-        playerNames.forEach((playerName) => {
-          playerPoints[playerName] = (playerPoints[playerName] || 0) + pointsPerCompletion;
-        });
-
+        
         const teams = game.teams.map((t) => {
           if (t.id !== team.id) return t;
           const tileId = Number(tile.id);
+          
+          // Update player points within the team
+          const updatedPlayerPoints = { ...(t.playerPoints || {}) };
+          playerNames.forEach((playerName) => {
+            updatedPlayerPoints[playerName] = (updatedPlayerPoints[playerName] || 0) + pointsPerCompletion;
+          });
+          
           return {
             ...t,
             inventory: [...(t.inventory || []), tile.rewardPowerupId],
             claimedPowerupTiles: [...(t.claimedPowerupTiles || []), tileId],
+            playerPoints: updatedPlayerPoints,
           };
         });
 
-        let next = { ...game, teams, playerPoints };
+        let next = { ...game, teams };
         const powerupName = powerupLabel(tile.rewardPowerupId);
         const playerCompletionsList = playerNames.map(p => `⭐ ${p} - ${pointsPerCompletion} pt${pointsPerCompletion !== 1 ? 's' : ''}`).join('\n');
         const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
         next = addLog(
           next,
-          `${adminPrefix}${team.name} gained ${powerupName}\nCompleted "${tile.label}"\n${playerCompletionsList}`,
-          event.adminName
+          `${adminPrefix}${team.name} gained ${powerupName}\nCompleted "${tile.label}"\n${playerCompletionsList}`
         );
         return next;
       }
@@ -649,7 +651,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         // Import tasks to task pools based on difficulty
         const taskPools = { ...game.taskPools };
         
-        event.tasks.forEach((task: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string }) => {
+        event.tasks.forEach((task: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string; startProofNeeded?: boolean }) => {
           const difficulty = task.difficulty;
           if (difficulty >= 1 && difficulty <= 3) {
             if (!taskPools[difficulty]) {
@@ -663,6 +665,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
               maxCompletions: task.maxCompletions,
               minCompletions: task.minCompletions,
               used: false,
+              startProofNeeded: task.startProofNeeded,
             });
           }
         });
@@ -866,6 +869,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             image: selectedTask.image || "",
             maxCompletions: selectedTask.maxCompletions || 1,
             minCompletions: selectedTask.minCompletions || 1,
+            startProofNeeded: selectedTask.startProofNeeded,
           };
         });
         
@@ -901,12 +905,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       }
 
       case "ADMIN_RANDOMIZE_DIFFICULTIES": {
-        // Debug: Log what settings are received
-        console.log("ADMIN_RANDOMIZE_DIFFICULTIES event:", {
-          early: event.early,
-          late: event.late,
-        });
-        
         // Reset fog of war state at start of randomization
         // It will be re-enabled if errors occur
         let workingState = { ...game };
@@ -953,7 +951,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           }
           
           workingState.revealedTiles = Array.from(revealedTiles);
-          console.log("Reset fog of war state from previous error");
         }
         
         // Save gradient settings for future use (always in gradient mode now)
@@ -961,7 +958,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           weights: { easy: 50, medium: 35, hard: 15 }, // Not used, for backward compatibility
           gradient: true,
           early: event.early || { easy: 65, medium: 30, hard: 5 },
-          late: event.late || { easy: 5, medium: 39, hard: 56 },
+          late: event.late || { easy: 5, medium: 35, hard: 60 },
         };
         
         // IMPORTANT: Clear all "used" flags from task pools before randomization
@@ -1114,10 +1111,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             // Check if candidate would create too long a streak (but not if we're forcing hard)
             if (!forceHard && candidateDiff === prevDiff && streak >= getMaxStreak(candidateDiff)) {
               // Can't use this difficulty, pick different one
-              console.log(`Tile ${index}: Prevented streak - prevDiff=${prevDiff}, streak=${streak}, maxStreak=${getMaxStreak(candidateDiff)}, candidateDiff=${candidateDiff}`);
               const alternatives: (1 | 2 | 3)[] = [1, 2, 3].filter(d => d !== prevDiff) as (1 | 2 | 3)[];
               candidateDiff = alternatives[Math.floor(Math.random() * alternatives.length)];
-              console.log(`Tile ${index}: Changed to candidateDiff=${candidateDiff}`);
             }
             
             // Check pool availability - NEVER violate this constraint
@@ -1212,7 +1207,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           
           // If this would create 4+ in a row, force a different difficulty
           if (consecutiveCount >= 3) {
-            console.log(`SAFETY: Tile ${index} would create ${consecutiveCount + 1} consecutive ${difficulty}s - forcing different difficulty`);
             const alternatives: (1 | 2 | 3)[] = [1, 2, 3].filter(d => d !== difficulty) as (1 | 2 | 3)[];
             
             // Try to pick an alternative that has available pool space
@@ -1221,7 +1215,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
               if (counts[altDiff] < available[altDiff] - MIN_REMAINING) {
                 difficulty = altDiff;
                 alternativeFound = true;
-                console.log(`SAFETY: Changed to difficulty ${difficulty}`);
                 break;
               }
             }
@@ -1229,7 +1222,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             // If no alternative has space, just pick randomly from alternatives
             if (!alternativeFound) {
               difficulty = alternatives[Math.floor(Math.random() * alternatives.length)];
-              console.log(`SAFETY: Forced to difficulty ${difficulty} (pool may be exhausted)`);
             }
           }
 
@@ -1244,11 +1236,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             maxCompletions: 1,
             minCompletions: 1
           };
-          
-          // Log assignment for debugging (first 15 tiles only)
-          if (index <= 14) {
-            console.log(`Tile ${index} (n=${tile.n}): assigned difficulty ${difficulty}, prevDiff=${raceTiles[index-1]?.difficulty}`);
-          }
         }
 
         // Check if we have enough hard tiles
@@ -1256,8 +1243,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           // Need to convert some easy/medium tiles to hard
           const shortfall = MIN_HARD_TILES - counts[3];
           let converted = 0;
-          
-          console.log(`Need to convert ${shortfall} tiles to hard to meet MIN_HARD_TILES`);
           
           // Smart conversion: Find gaps between hard tiles and fill them
           // Build a list of candidate positions with their gap sizes
@@ -1307,7 +1292,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             counts[oldDiff]--;
             counts[3]++;
             converted++;
-            console.log(`Converted tile ${i} (n=${raceTiles[i].n}) from ${oldDiff} to 3 (gap=${candidate.gapSize}, distFromEnd=${candidate.distanceFromEnd})`);
           }
           
           if (converted < shortfall) {
@@ -1315,12 +1299,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           }
         }
 
-        // Log assignment summary
-        console.log(`\n=== ASSIGNMENT COMPLETE: ${raceTiles.length} tiles assigned ===`);
-        console.log(`Counts: Easy=${counts[1]}, Medium=${counts[2]}, Hard=${counts[3]}`);
-        
         // FINAL VALIDATION: Check for consecutive tile violations
-        console.log("\n=== FINAL VALIDATION ===");
         let maxConsecutive = 0;
         let consecutiveViolations: string[] = [];
         let hardGapViolations: string[] = [];
@@ -1353,18 +1332,12 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           }
         }
         
-        console.log(`Max consecutive: ${maxConsecutive}`);
         if (consecutiveViolations.length > 0) {
           console.error(`CONSECUTIVE VIOLATIONS FOUND:`, consecutiveViolations);
         }
         if (hardGapViolations.length > 0) {
           console.error(`HARD GAP VIOLATIONS FOUND:`, hardGapViolations);
         }
-        
-        console.log(`\\nPool availability check:`);
-        console.log(`Easy: need ${counts[1]}, have ${available[1]}, remaining after: ${available[1] - counts[1] - MIN_REMAINING}`);
-        console.log(`Medium: need ${counts[2]}, have ${available[2]}, remaining after: ${available[2] - counts[2] - MIN_REMAINING}`);
-        console.log(`Hard: need ${counts[3]}, have ${available[3]}, remaining after: ${available[3] - counts[3] - MIN_REMAINING}`);
         
         // Validate we have enough tasks
         const warnings: string[] = [];
@@ -1377,8 +1350,6 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         if (counts[3] > available[3] - MIN_REMAINING) {
           warnings.push(`Hard pool needs ${counts[3] + MIN_REMAINING - available[3]} more tasks`);
         }
-        
-        console.log(`Warnings after pool check: ${warnings.length}`);
         
         // Add validation violations to warnings
         if (consecutiveViolations.length > 0) {
@@ -1432,13 +1403,11 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize difficulties - ${warnings.join(", ")} - Tiles cleared, pools reset. Fix issues and try again.`);
           return errorState;
         }
-        
-        console.log(`✓ Validation passed - proceeding with tile randomization`);
 
         let next: GameState = { ...workingState, raceTiles, gradientSettings };
         next.usedPoolTaskIds = [];
         
-        const logMsg = `Admin randomized difficulties (E:${counts[1]} M:${counts[2]} H:${counts[3]}, pools: ${available[1] - counts[1]}/${available[2] - counts[2]}/${available[3] - counts[3]} remaining)`;
+        const logMsg = `Admin randomized difficulties`;
         
         next = addLog(next, logMsg);
         
@@ -1481,6 +1450,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             image: selectedTask.image || "",
             maxCompletions: selectedTask.maxCompletions || 1,
             minCompletions: selectedTask.minCompletions || 1,
+            startProofNeeded: selectedTask.startProofNeeded,
           };
         });
         
@@ -1601,7 +1571,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         
         return addLog(
           { ...game, teams },
-          `Admin changed powerup cooldown for ${team.name}: ${oldState ? "ON" : "OFF"} → ${newState ? "ON" : "OFF"}`
+          `Admin changed powerup cooldown for ${team.name}: ${oldState ? "ON" : "OFF"} → ${newState ? "ON" : "OFF"}`,
+          event.adminName || null
         );
       }
 
@@ -1611,19 +1582,78 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           return addLog(game, "Nothing to undo - no history available");
         }
         
-        // Get what action is being undone (from current state's first log)
-        const undoneAction = game.log && game.log.length > 0 
-          ? game.log[0].message 
-          : "last action";
+        // Determine target state based on targetHistoryIndex
+        let targetState: GameState;
+        let newHistory: GameState[];
+        let undoneAction: string;
         
-        // Get the most recent state from history
-        const previousState = history[history.length - 1];
-        // Remove the last item from history
-        const newHistory = history.slice(0, -1);
+        if (event.targetHistoryIndex !== undefined && event.targetHistoryIndex >= 0 && event.targetHistoryIndex < history.length) {
+          // Undo to a specific point in history
+          targetState = history[event.targetHistoryIndex];
+          newHistory = history.slice(0, event.targetHistoryIndex);
+          
+          // Collect all log messages between target state and current state
+          const undoneActions: string[] = [];
+          const targetLogIds = new Set(targetState.log?.map(l => l.id) || []);
+          
+          // Get all logs from current state that aren't in target state
+          if (game.log) {
+            for (const log of game.log) {
+              if (!targetLogIds.has(log.id)) {
+                // Strip undo prefixes and admin names to get clean action
+                let cleanMessage = log.message;
+                // Remove undo prefix
+                while (cleanMessage.startsWith("⎌ Undid: ")) {
+                  cleanMessage = cleanMessage.substring("⎌ Undid: ".length);
+                }
+                // Remove admin name prefix
+                const adminPrefixMatch = cleanMessage.match(/^\[([^\]]+)\]\n/);
+                if (adminPrefixMatch) {
+                  cleanMessage = cleanMessage.substring(adminPrefixMatch[0].length);
+                }
+                undoneActions.push(cleanMessage);
+              }
+            }
+          }
+          
+          // Reverse to show in chronological order (oldest first)
+          undoneActions.reverse();
+          
+          const numActionsUndone = undoneActions.length;
+          if (numActionsUndone > 0) {
+            undoneAction = `${numActionsUndone} action(s):\n${undoneActions.map((action, i) => `${i + 1}. ${action}`).join('\n')}`;
+          } else {
+            undoneAction = `${history.length - event.targetHistoryIndex} action(s) to restore earlier state`;
+          }
+        } else {
+          // Default: undo last action
+          undoneAction = game.log && game.log.length > 0 
+            ? game.log[0].message 
+            : "last action";
+          
+          targetState = history[history.length - 1];
+          newHistory = history.slice(0, -1);
+        }
         
-        // Restore previous state with updated history and add descriptive log
-        let next: GameState = { ...previousState, eventHistory: newHistory };
-        next = addLog(next, `⎌ Undid: ${undoneAction}`);
+        // Find affected teams by comparing current state to target state
+        const affectedTeamIds = new Set<string>();
+        
+        // Check for team changes (position, points, inventory, etc.)
+        game.teams.forEach((currentTeam, idx) => {
+          const targetTeam = targetState.teams[idx];
+          if (targetTeam && (
+            currentTeam.pos !== targetTeam.pos ||
+            JSON.stringify(currentTeam.playerPoints) !== JSON.stringify(targetTeam.playerPoints) ||
+            currentTeam.inventory?.length !== targetTeam.inventory?.length
+          )) {
+            affectedTeamIds.add(currentTeam.id);
+          }
+        });
+        
+        // Restore target state with updated history and add descriptive log
+        let next: GameState = { ...targetState, eventHistory: newHistory };
+        const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
+        next = addLog(next, `${adminPrefix}⎌ Undid: ${undoneAction}`);
         return next;
       }
 
@@ -1660,7 +1690,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         }
         
         const changeDesc = changes.length > 0 ? ` (${changes.join(", ")})` : "";
-        next = addLog(next, `Admin updated team ${team?.name || "Unknown"}${changeDesc}`);
+        const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
+        next = addLog(next, `${adminPrefix}Admin updated team ${team?.name || "Unknown"}${changeDesc}`);
         return next;
       }
 
@@ -1820,12 +1851,13 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         });
 
         // Log the event
-        const playerList = event.playerNames.join(", ");
         const powerupName = powerupLabel(tile.rewardPowerupId);
-        const pointsPerPlayer = tile.pointsPerCompletion || 1;
+        const pointsPerCompletion = tile.pointsPerCompletion || 1;
+        const playerCompletionsList = event.playerNames.map(p => `⭐ ${p} - ${pointsPerCompletion} pt${pointsPerCompletion !== 1 ? 's' : ''}`).join('\n');
+        const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
         next = addLog(
           next,
-          `${team.name} gained ${powerupName}\n${playerList} completed "${tile.label}" (+${pointsPerPlayer} pts each)`
+          `${adminPrefix}${team.name} gained ${powerupName}\nCompleted "${tile.label}"\n${playerCompletionsList}`
         );
 
         return next;
