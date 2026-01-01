@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 interface DraftState {
-  step: "setup" | "picking" | "stealing" | "summary";
+  step: "setup" | "picking" | "summary";
   playersText: string;
   teamsText: string;
   captains: Record<string, string>;
@@ -11,11 +11,7 @@ interface DraftState {
   order: string[];
   pickIndex: number;
   picks: Record<string, string[]>;
-  stealsUsed: Record<string, boolean>;
-  stealIndex: number;
-  originalTeams: Record<string, string>;
-  stolenFrom: Record<string, boolean>;
-  lastStolenBy: Record<string, string>;
+  skippedPicks: Record<string, number>;
 }
 
 interface FormTeamsModalProps {
@@ -40,11 +36,7 @@ export default function FormTeamsModal({
     order: [],
     pickIndex: 0,
     picks: {},
-    stealsUsed: {},
-    stealIndex: 0,
-    originalTeams: {},
-    stolenFrom: {},
-    lastStolenBy: {},
+    skippedPicks: {},
   });
 
   if (!isOpen) return null;
@@ -108,59 +100,22 @@ export default function FormTeamsModal({
       const available = d.available.filter((p) => p !== playerName);
       const picks = { ...d.picks, [tn]: [...(d.picks[tn] || []), playerName] };
       const nextPickIndex = d.pickIndex + 1;
-      const step = available.length === 0 ? "stealing" : d.step;
+      const step = available.length === 0 ? "summary" : d.step;
 
-      // Snapshot original teams when entering steal phase
-      let originalTeams = d.originalTeams;
-      if (step === "stealing" && Object.keys(d.originalTeams).length === 0) {
-        originalTeams = {};
-        d.order.forEach((teamName) => {
-          (picks[teamName] || []).forEach((p) => {
-            originalTeams[p] = teamName;
-          });
-        });
-      }
-
-      return { ...d, available, picks, pickIndex: nextPickIndex, step, originalTeams };
+      return { ...d, available, picks, pickIndex: nextPickIndex, step };
     });
   };
 
-  const currentStealTeam = () => {
-    if (!draft.order.length) return "";
-    return draft.order[draft.stealIndex % draft.order.length];
-  };
-
-  const stealPlayer = (fromTeam: string, playerName: string) => {
-    const toTeam = currentStealTeam();
-    if (!toTeam || fromTeam === toTeam) return;
+  const skipPick = () => {
+    const tn = currentDraftTeam();
+    if (!tn) return;
 
     setDraft((d) => {
-      const picks = { ...d.picks };
-      picks[fromTeam] = (picks[fromTeam] || []).filter((p) => p !== playerName);
-      picks[toTeam] = [...(picks[toTeam] || []), playerName];
+      const skippedPicks = { ...d.skippedPicks, [tn]: (d.skippedPicks[tn] || 0) + 1 };
+      const nextPickIndex = d.pickIndex + 1;
+      const step = d.available.length === 0 ? "summary" : d.step;
 
-      const stealsUsed = { ...d.stealsUsed, [toTeam]: true };
-      const stolenFrom = { ...d.stolenFrom, [fromTeam]: true };
-      const lastStolenBy = { ...d.lastStolenBy, [fromTeam]: toTeam };
-      const nextStealIndex = d.stealIndex + 1;
-
-      const allDone = d.order.every((tn) => stealsUsed[tn]);
-      const step = allDone ? "summary" : d.step;
-
-      return { ...d, picks, stealsUsed, stolenFrom, lastStolenBy, stealIndex: nextStealIndex, step };
-    });
-  };
-
-  const skipSteal = () => {
-    const toTeam = currentStealTeam();
-    setDraft((d) => {
-      const stealsUsed = { ...d.stealsUsed, [toTeam]: true };
-      const nextStealIndex = d.stealIndex + 1;
-
-      const allDone = d.order.every((tn) => stealsUsed[tn]);
-      const step = allDone ? "summary" : d.step;
-
-      return { ...d, stealsUsed, stealIndex: nextStealIndex, step };
+      return { ...d, skippedPicks, pickIndex: nextPickIndex, step };
     });
   };
 
@@ -272,9 +227,14 @@ export default function FormTeamsModal({
                     Current pick: <span className="font-semibold">{currentDraftTeam()}</span>
                   </div>
                 </div>
-                <button onClick={() => setDraft((d) => ({ ...d, step: "summary" }))} className={btnClass("secondary")}>
-                  Finish early
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={skipPick} className={btnClass("secondary")}>
+                    Skip Pick
+                  </button>
+                  <button onClick={() => setDraft((d) => ({ ...d, step: "summary" }))} className={btnClass("secondary")}>
+                    Finish early
+                  </button>
+                </div>
               </div>
 
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -317,110 +277,6 @@ export default function FormTeamsModal({
                         <ul className="list-disc pl-5">
                           {(draft.picks[tn] || []).map((m, idx) => (
                             <li key={idx}>{m}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span className={isDark ? "text-slate-500" : "text-slate-400"}>No picks yet.</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Stealing */}
-        {draft.step === "stealing" && (
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className={`rounded-2xl border p-4 lg:col-span-2 ${isDark ? "border-slate-600 bg-slate-800" : "border-slate-200 bg-white"}`}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold">Steal Phase</div>
-                  <div className={`mt-1 text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                    Current turn: <span className="font-semibold">{currentStealTeam()}</span>
-                  </div>
-                  <div className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    Each team can steal one player (not captain) from another team
-                  </div>
-                </div>
-                <button onClick={() => setDraft((d) => ({ ...d, step: "summary" }))} className={btnClass("secondary")}>
-                  Finish early
-                </button>
-              </div>
-
-              <div className="mt-4">
-                <button onClick={skipSteal} className={`rounded-xl border px-3 py-2 text-sm mb-4 ${isDark ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-100" : "border-slate-300 bg-white hover:bg-slate-50 text-slate-900"}`}>
-                  Skip steal
-                </button>
-              </div>
-
-              <div className="mt-3 space-y-3">
-                {draft.order
-                  .filter((tn) => {
-                    const currentTeam = currentStealTeam();
-                    if (tn === currentTeam) return false;
-                    if (draft.stolenFrom[tn]) return false;
-                    if (draft.lastStolenBy[currentTeam] === tn) return false;
-                    return true;
-                  })
-                  .map((targetTeam) => {
-                    const stealablePlayers = (draft.picks[targetTeam] || []).filter((p) => p !== draft.captains[targetTeam]);
-                    if (stealablePlayers.length === 0) return null;
-
-                    return (
-                      <div key={targetTeam} className={`rounded-xl border p-3 ${isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"}`}>
-                        <div className="text-sm font-semibold mb-2">{targetTeam}</div>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          {stealablePlayers.map((p) => (
-                            <button
-                              key={p}
-                              onClick={() => stealPlayer(targetTeam, p)}
-                              className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${
-                                isDark ? "border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-100" : "border-slate-300 bg-white hover:bg-slate-50 text-slate-900"
-                              }`}
-                            >
-                              <span>{p}</span>
-                              <span className={`rounded px-2 py-1 text-xs font-semibold text-white ${isDark ? "bg-red-900" : "bg-red-700"}`}>
-                                Steal
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-
-            <div className={`rounded-2xl border p-4 ${isDark ? "border-slate-600 bg-slate-800" : "border-slate-200 bg-white"}`}>
-              <div className="text-sm font-semibold">Teams</div>
-              <div className="mt-3 space-y-3">
-                {draft.order.map((tn) => (
-                  <div
-                    key={tn}
-                    className={`rounded-xl border p-3 ${
-                      tn === currentStealTeam()
-                        ? isDark ? "border-amber-600 bg-amber-900/20" : "border-amber-400 bg-amber-50"
-                        : isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold">{tn}</div>
-                      {draft.stealsUsed[tn] && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-200 text-slate-600"}`}>
-                          Steal used
-                        </span>
-                      )}
-                    </div>
-                    <div className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>Captain: {draft.captains[tn] || "?"}</div>
-                    <div className="mt-2 text-sm">
-                      {(draft.picks[tn] || []).length ? (
-                        <ul className="list-disc pl-5">
-                          {(draft.picks[tn] || []).map((m, idx) => (
-                            <li key={idx} className={m === draft.captains[tn] ? "font-semibold" : ""}>
-                              {m}
-                            </li>
                           ))}
                         </ul>
                       ) : (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, memo } from "react";
-import { GameState, Team } from "@/types/game";
+import { GameState, Team, POWERUP_DEFS } from "@/types/game";
 import { Button, Modal, inputClass } from "./ui";
 import { diffTint } from "@/lib/gameUtils";
 
@@ -40,6 +40,8 @@ function TeamsSidebar({
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [playerCompletions, setPlayerCompletions] = useState<{ [playerName: string]: number }>({});
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [inventoryTeamId, setInventoryTeamId] = useState<string | null>(null);
 
   const getProgress = (team: Team) => {
     return Math.round((team.pos / MAX_TILE) * 100);
@@ -99,6 +101,16 @@ function TeamsSidebar({
       setActiveTeamId(null);
       setPlayerCompletions({});
     }
+  };
+
+  const handleOpenInventory = (teamId: string) => {
+    setInventoryTeamId(teamId);
+    setShowInventoryModal(true);
+  };
+
+  const getPowerupName = (powerupId: string): string => {
+    const powerup = POWERUP_DEFS.find(p => p.id === powerupId);
+    return powerup ? powerup.name : powerupId;
   };
 
   return (
@@ -185,11 +197,18 @@ function TeamsSidebar({
               </div>
             </div>
 
-            {/* Powerup Count */}
+            {/* Powerup Count - Clickable */}
             {team.inventory && team.inventory.length > 0 && (
-              <p className={`text-xs mb-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              <button
+                onClick={() => handleOpenInventory(team.id)}
+                className={`text-xs mb-2 hover:underline cursor-pointer transition-colors ${
+                  isDark 
+                    ? "text-slate-400 hover:text-slate-300" 
+                    : "text-slate-600 hover:text-slate-700"
+                }`}
+              >
                 ⚡ {team.inventory.length} powerup{team.inventory.length > 1 ? "s" : ""}
-              </p>
+              </button>
             )}
 
             {/* Cooldown Status */}
@@ -525,6 +544,77 @@ function TeamsSidebar({
                   Confirm {totalCompletions > 0 ? `(${totalCompletions})` : ''}
                 </Button>
               </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* Inventory Modal */}
+      {showInventoryModal && inventoryTeamId && (() => {
+        const team = game.teams.find(t => t.id === inventoryTeamId);
+        if (!team) return null;
+
+        const inventory = team.inventory || [];
+        const powerupCounts: Record<string, number> = {};
+        inventory.forEach(powerupId => {
+          powerupCounts[powerupId] = (powerupCounts[powerupId] || 0) + 1;
+        });
+
+        return (
+          <Modal
+            isOpen={showInventoryModal}
+            onClose={() => setShowInventoryModal(false)}
+            isDark={isDark}
+            title={`${team.name}'s Inventory`}
+          >
+            <div className="space-y-4">
+              {inventory.length === 0 ? (
+                <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  No powerups in inventory
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {Object.entries(powerupCounts).map(([powerupId, count]) => (
+                    <div
+                      key={powerupId}
+                      className={`p-3 rounded-lg border ${
+                        isDark 
+                          ? 'bg-slate-800 border-slate-700' 
+                          : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            {getPowerupName(powerupId)}
+                          </div>
+                          <div className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                            {POWERUP_DEFS.find(p => p.id === powerupId)?.description || ''}
+                          </div>
+                        </div>
+                        {count > 1 && (
+                          <div className={`ml-3 px-2 py-1 rounded-full text-sm font-semibold ${
+                            isDark 
+                              ? 'bg-blue-900 text-blue-200' 
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            ×{count}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                variant="secondary"
+                isDark={isDark}
+                onClick={() => setShowInventoryModal(false)}
+                className="w-full"
+              >
+                Close
+              </Button>
             </div>
           </Modal>
         );

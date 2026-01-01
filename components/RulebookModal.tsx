@@ -72,9 +72,15 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 <p className="text-red-500 dark:text-red-400 font-semibold text-lg text-center mt-2">
                   NO PROOF = NO COMPLETION
                 </p>
-                <p className="text-red-500 dark:text-red-400 font-semibold text-base text-center mt-3">
-                  📅 Proof pictures must show the date visible on screen via RuneLite plugin
-                </p>
+                <div className="mt-3 space-y-2">
+                  <p className="text-red-500 dark:text-red-400 font-semibold text-base text-center">
+                    📅 Proof pictures MUST include:
+                  </p>
+                  <ul className="list-disc list-inside text-red-500 dark:text-red-400 font-semibold text-sm text-center space-y-1">
+                    <li>The date visible on screen (via RuneLite plugin)</li>
+                    <li>The player name receiving the completion/points</li>
+                  </ul>
+                </div>
                 
                 <div className={`mt-4 p-3 rounded-lg ${isDark ? "bg-yellow-900/30 border-yellow-600" : "bg-yellow-100 border-yellow-500"} border-2`}>
                   <p className="font-semibold mb-2 text-center">📸 "Start Check" Tiles - Special Requirement:</p>
@@ -159,6 +165,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                   <li><strong>Min Completions:</strong> Minimum number of players required to complete (must select at least this many)</li>
                   <li><strong>Max Completions:</strong> Maximum number of players allowed to complete (cannot select more than this)</li>
                   <li><strong>Multi-completion tiles:</strong> Unless it's a group tile, the same player can provide multiple completions</li>
+                  <li><strong>⚠️ Progress resets when moving:</strong> Your progress on a tile starts when you land on it. If you get moved by a powerup (forward or backward), your progress on the new tile restarts from zero</li>
                 </ul>
               </section>
 

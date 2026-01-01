@@ -114,8 +114,8 @@ export default function ImportPowerupsModal({
 
         const normalizedClaimType = claimType === "eachteam" ? "eachTeam" : claimType === "firstteam" ? "firstTeam" : "unlimited";
         
-        // Instructions - default to "No further instructions given." if empty
-        const instructions = parts[6] && parts[6].trim() !== "" ? parts[6] : "No further instructions given.";
+        // Instructions - leave empty if not provided
+        const instructions = parts[6] && parts[6].trim() !== "" ? parts[6] : "";
         
         // URL - cannot be empty
         const image = parts[7] || "";
@@ -193,7 +193,7 @@ export default function ImportPowerupsModal({
             <div>clearCooldown, Quick Task, 1, 5, 1, unlimited, Simple task for everyone, </div>
           </div>
           <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Note: Powerup type, task, points per completion, and claim type are required. Claim type: "eachTeam", "firstTeam", or "unlimited". Max/min completions default to 1 if empty. Instructions default to "No further instructions given." if empty. URL is required.
+            Note: Powerup type, task, points per completion, and claim type are required. Claim type: "eachTeam", "firstTeam", or "unlimited". Max/min completions default to 1 if empty. Instructions are optional (leave empty if none). URL is required.
           </p>
         </div>
 

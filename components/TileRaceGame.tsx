@@ -395,6 +395,14 @@ export default function TileRaceGame() {
 
   // Claim powerup handlers
   const handleOpenClaimPowerup = (teamId: string) => {
+    // Check if any team has reached tile 5 or higher
+    const hasTeamReachedTile5 = game.teams.some(team => team.pos >= 5);
+    
+    if (!hasTeamReachedTile5) {
+      alert("Powerup tiles are not available yet. At least one team must complete tile 4 (reach tile 5) before powerups can be claimed.");
+      return;
+    }
+    
     setClaimTeamId(teamId);
     setClaimSelectedPowerupTileId(null);
     setClaimConfirmOpen(false);

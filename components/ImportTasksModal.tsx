@@ -83,8 +83,8 @@ export default function ImportTasksModal({
           return;
         }
 
-        // Instructions - default to "No further instructions given." if empty
-        const instructions = parts[4] && parts[4].trim() !== "" ? parts[4] : "No further instructions given.";
+        // Instructions - leave empty if not provided
+        const instructions = parts[4] && parts[4].trim() !== "" ? parts[4] : "";
         
         // URL - cannot be empty
         const image = parts[5] || "";
@@ -173,7 +173,7 @@ export default function ImportTasksModal({
             <div>Build a feature, 3, 1, 1, Implement a new feature from scratch, , </div>
           </div>
           <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Note: Task and difficulty are required. Difficulty: 1 (Easy), 2 (Medium), 3 (Hard). Max/min completions default to 1 if empty. Instructions default to "No further instructions given." if empty. URL is required. Start log proof needed: "yes" or "no" (defaults to no if empty).
+            Note: Task and difficulty are required. Difficulty: 1 (Easy), 2 (Medium), 3 (Hard). Max/min completions default to 1 if empty. Instructions are optional (leave empty if none). URL is required. Start log proof needed: "yes" or "no" (defaults to no if empty).
           </p>
         </div>
 

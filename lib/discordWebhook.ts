@@ -158,13 +158,31 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
         const powerupTile = gameState.powerupTiles.find(pt => pt.id === Number(event.powerTileId));
         if (powerupTile) {
           const powerupName = getPowerupName(powerupTile.rewardPowerupId);
+          const isFirstTeamOnly = powerupTile.claimType === 'firstTeam';
           
           // Check if admin action
           const isAdminClaim = event.adminName !== undefined;
-          if (isAdminClaim) {
-            title = `${event.adminName}\n🎁 ${claimTeamName} claimed\n${powerupName}`;
+          
+          // Format title differently for one-time powerups
+          if (isFirstTeamOnly) {
+            if (isAdminClaim) {
+              title = `${event.adminName}\n⚠️ ${claimTeamName} claimed one-time powerup\n${powerupName}`;
+            } else {
+              title = `⚠️ ${claimTeamName} claimed one-time powerup\n${powerupName}`;
+            }
+            
+            // Add warning for one-time powerup
+            fields.push({ 
+              name: "⚠️ Warning", 
+              value: `Team has claimed this powerup. No other team can claim it.`, 
+              inline: false 
+            });
           } else {
-            title = `🎁 ${claimTeamName} claimed\n${powerupName}`;
+            if (isAdminClaim) {
+              title = `${event.adminName}\n🎁 ${claimTeamName} claimed\n${powerupName}`;
+            } else {
+              title = `🎁 ${claimTeamName} claimed\n${powerupName}`;
+            }
           }
           
           fields.push({ name: "Task", value: powerupTile.label, inline: false });
@@ -565,6 +583,19 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
   if (event.type === 'USE_POWERUP' && 'targetId' in event && event.targetId && gameState) {
     const targetTeam = gameState.teams.find(t => t.id === event.targetId);
     if (targetTeam) affectedTeams.add({ name: targetTeam.name, slot: targetTeam.discordWebhookSlot });
+  }
+  
+  // For "firstTeam" claim type powerups, notify ALL teams EXCEPT the claiming team
+  if (event.type === 'CLAIM_POWERUP_TILE' && gameState) {
+    const powerupTile = gameState.powerupTiles.find(pt => pt.id === Number(event.powerTileId));
+    if (powerupTile && powerupTile.claimType === 'firstTeam') {
+      // Add all teams EXCEPT the claiming team to affected teams
+      gameState.teams.forEach(team => {
+        if (team.id !== event.teamId) {
+          affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+        }
+      });
+    }
   }
   
   // Send to main channel if configured
