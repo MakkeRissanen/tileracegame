@@ -129,7 +129,7 @@ function TeamsSidebar({
 
   return (
     <>
-      <div className="space-y-4 max-w-[280px]">
+      <div className="space-y-3 md:space-y-4 max-w-full lg:max-w-[280px]">
       {teamData.map(({ team, progress, currentTile }) => {
         const isMyTeam = myTeam?.id === team.id;
 
@@ -138,7 +138,7 @@ function TeamsSidebar({
             key={team.id}
             className={`
               ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}
-              border rounded-2xl shadow-sm p-3
+              border rounded-xl md:rounded-2xl shadow-sm p-2 md:p-3
               ${isMyTeam ? "ring-2 ring-blue-500" : ""}
             `}
           >
@@ -147,7 +147,7 @@ function TeamsSidebar({
               <Button
                 variant="secondary"
                 isDark={isDark}
-                className="w-full text-xs py-1.5 mb-2"
+                className="w-full text-xs py-1 md:py-1.5 mb-1.5 md:mb-2"
                 onClick={() => onEditTeam && onEditTeam(team.id)}
               >
                 ✏️ Edit Team

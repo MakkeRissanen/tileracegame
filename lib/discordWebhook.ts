@@ -115,14 +115,37 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
       if (gameState) {
         const team = gameState.teams.find(t => t.id === event.teamId);
         if (team) {
-          const tile = gameState.raceTiles.find(t => t.n === team.pos - 1);
+          // Check if bomb was triggered to determine actual completed tile
+          let completedTileNumber = team.pos - 1;
+          const bombTriggered = gameState.lastBombTrigger && 
+                               Date.now() - gameState.lastBombTrigger.timestamp < 5000 &&
+                               gameState.lastBombTrigger.victim === event.teamId;
+          
+          if (bombTriggered && gameState.lastBombTrigger) {
+            // If bomb triggered, the completed tile is the one before the bomb tile
+            completedTileNumber = gameState.lastBombTrigger.tile - 1;
+          }
+          
+          const tile = gameState.raceTiles.find(t => t.n === completedTileNumber);
           if (tile) {
-            fields.push({ name: "Tile", value: `#${team.pos - 1} - ${tile.label}`, inline: false });
+            // Check for bomb trigger first (display at top)
+            if (bombTriggered && gameState.lastBombTrigger) {
+              const bombData = gameState.lastBombTrigger;
+              const bomberTeam = gameState.teams.find(t => t.id === bombData.bombPlacer);
+              const bomberName = bomberTeam ? bomberTeam.name : "Unknown";
+              fields.push({ 
+                name: "💣 TIME BOMB TRIGGERED!", 
+                value: `${bomberName}'s bomb exploded at Tile ${bombData.tile}!\n${teamName} was pushed back to Tile ${bombData.pushedTo}!`, 
+                inline: false 
+              });
+            }
+            
+            fields.push({ name: "Tile", value: `#${completedTileNumber} - ${tile.label}`, inline: false });
             
             // Calculate points using same logic as game
             const isMultiCompletion = Math.max(1, Number(tile.maxCompletions || 1)) > 1;
             const doubledTilesInfo = gameState.doubledTilesInfo || {};
-            const isDoubledWithDiffPoints = doubledTilesInfo[team.pos - 1]?.useDifficultyPoints || false;
+            const isDoubledWithDiffPoints = doubledTilesInfo[completedTileNumber]?.useDifficultyPoints || false;
             
             const points = (isMultiCompletion && !isDoubledWithDiffPoints) 
               ? 1 
@@ -143,22 +166,13 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
               positionText += '\n⚠️ START PROOF CHECK';
             }
             fields.push({ name: "New Position", value: positionText, inline: false });
+            
+            // Add instructions if the tile has them
+            if (currentTile.instructions && currentTile.instructions.trim()) {
+              fields.push({ name: "📋 Instructions", value: currentTile.instructions, inline: false });
+            }
           } else {
             fields.push({ name: "New Position", value: `Tile ${team.pos}`, inline: false });
-          }
-          
-          // Check for bomb trigger
-          if (gameState.lastBombTrigger && Date.now() - gameState.lastBombTrigger.timestamp < 5000) {
-            const bombData = gameState.lastBombTrigger;
-            if (bombData.victim === event.teamId) {
-              const bomberTeam = gameState.teams.find(t => t.id === bombData.bombPlacer);
-              const bomberName = bomberTeam ? bomberTeam.name : "Unknown";
-              fields.push({ 
-                name: "💣 TIME BOMB TRIGGERED!", 
-                value: `${bomberName}'s bomb exploded at Tile ${bombData.tile}!\n${teamName} was pushed back to Tile ${bombData.pushedTo}!`, 
-                inline: false 
-              });
-            }
           }
         }
       }

@@ -241,7 +241,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 </h3>
                 <ul className="list-disc list-inside space-y-1">
                   <li><strong>Final Tile (56):</strong> Always hard difficulty, cannot be modified</li>
-                  <li><strong>Reward Tiles:</strong> Grant a powerup when completed</li>
                 </ul>
               </section>
 
@@ -456,11 +455,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Can only be used when cooldown is active</li>
                     <li>Does not trigger cooldown itself (can chain multiple powerups)</li>
                   </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Use for powerup combos (e.g., Skip + Clear + Skip)</li>
-                    <li>Essential for rapid offensive/defensive plays</li>
-                  </ul>
                 </div>
               </section>
 
@@ -496,11 +490,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>You must have at least one other powerup to duplicate</li>
                     <li>Triggers powerup cooldown</li>
                   </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Duplicate rare/powerful powerups</li>
-                    <li>Cannot double "Double Powerup" itself (select from other powerups)</li>
-                  </ul>
                 </div>
               </section>
 
@@ -524,11 +513,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Insured powerups cannot be removed by "Disable Powerup"</li>
                     <li>Insurance is permanent - protects the powerup until it's used</li>
                     <li>Insurance badge (🛡️) shown in inventory</li>
-                  </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Protect your most valuable powerups first</li>
-                    <li>Essential defensive tool against enemy theft</li>
                   </ul>
                 </div>
               </section>
@@ -575,12 +559,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>If victim would go below tile 1, they stop at tile 1</li>
                     <li>Bomb visibility: only bomb placer sees the 💣 marker</li>
                   </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Place on high-traffic tiles or tiles near the end</li>
-                    <li>Expensive but powerful area denial tool</li>
-                    <li>Can slow down leading teams significantly</li>
-                  </ul>
                 </div>
               </section>
 
@@ -600,13 +578,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Target team must have at least one powerup</li>
                     <li><strong>Cannot steal insured powerups (🛡️)</strong></li>
                     <li>Triggers powerup cooldown</li>
-                  </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Catch-up mechanic - helps teams that are behind</li>
-                    <li>Steal powerful powerups from leading opponents</li>
-                    <li>Target teams without Powerup Insurance</li>
-                    <li>More valuable than Disable Powerup (you gain instead of just removing)</li>
                   </ul>
                 </div>
               </section>
@@ -632,12 +603,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Cannot target yourself</li>
                     <li>Triggers powerup cooldown</li>
                   </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Lock down teams that just used a powerup (stack cooldowns)</li>
-                    <li>Prevent opponents from using defensive powerups</li>
-                    <li>Essential for controlling leading teams</li>
-                  </ul>
                 </div>
               </section>
 
@@ -654,7 +619,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Clean, unmodified tiles only</li>
                     <li>Any tile from #2 to #55 (excluding tile 1 and final tile)</li>
                     <li>Tiles at or ahead of the farthest team's position</li>
-                    <li>Revealed tiles</li>
+                    <li>Tiles that are visible (not hidden by fog of war)</li>
                   </ul>
                   <p className="font-semibold text-xs mt-2 mb-1">❌ Cannot Target:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
@@ -663,7 +628,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Already altered tiles (copied, changed, or doubled)</li>
                     <li>Tiles with teams standing on them</li>
                     <li>Tiles behind the farthest team</li>
-                    <li>Hidden tiles</li>
+                    <li>Tiles hidden by fog of war</li>
                   </ul>
                   <p className="font-semibold text-xs mt-2 mb-1">Special Mechanics:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
@@ -674,14 +639,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Shows purple 🔄 badge (treated as "changed" tile)</li>
                     <li>Cannot be changed or modified again after randomization</li>
                     <li>Triggers powerup cooldown</li>
-                  </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Extremely chaotic effect - could help or hurt any team</li>
-                    <li>Can turn easy tiles into hard tiles or vice versa</li>
-                    <li>Use when ahead to create unpredictability</li>
-                    <li>May force teams to adapt their strategies mid-race</li>
-                    <li>High-risk chaos tool</li>
                   </ul>
                 </div>
               </section>
@@ -711,12 +668,6 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Adds the reward to your inventory immediately</li>
                     <li>Popup notification shows what you received</li>
                     <li>Triggers powerup cooldown</li>
-                  </ul>
-                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>High-risk, high-reward - could get powerful powerups</li>
-                    <li>All possible rewards are useful</li>
-                    <li>Good when you need versatility but don't know what's coming</li>
                   </ul>
                 </div>
               </section>
@@ -800,7 +751,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <ul className="list-disc list-inside space-y-1 text-sm mb-2">
                       <li>Change Tile + Double Tile</li>
                       <li>Copy and Paste → then later Double Tile</li>
-                      <li>Copy FROM doubled tile → Paste elsewhere</li>
+                      <li>Copy FROM doubled tile → Paste elsewhere (task only, NOT the doubling effect)</li>
                     </ul>
                     <p><strong>Not Allowed:</strong></p>
                     <ul className="list-disc list-inside space-y-1 text-sm">

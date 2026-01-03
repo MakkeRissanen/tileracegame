@@ -225,6 +225,12 @@ export default function TileRaceGame() {
   useEffect(() => {
     if (myTeam && game.log && game.log.length > 0) {
       const lastLog = game.log[game.log.length - 1];
+      
+      // Skip if we've already shown this log entry
+      if (shownLogIds.current.has(lastLog.id)) {
+        return;
+      }
+      
       // Look for bomb trigger in the log message
       const bombPattern = new RegExp(`${myTeam.name} completed.*\n💣 Time bomb triggered! Pushed back from Tile (\d+) to Tile (\d+)`);
       const match = lastLog.message.match(bombPattern);
@@ -237,6 +243,9 @@ export default function TileRaceGame() {
           const bomberName = bomberTeam ? bomberTeam.name : "Unknown";
           setBombTriggerData({ bomberName, fromTile, toTile });
           setShowBombTrigger(true);
+          
+          // Mark this log entry as shown
+          shownLogIds.current.add(lastLog.id);
         }
       }
     }
@@ -635,7 +644,7 @@ export default function TileRaceGame() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-2`}>
+    <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-2 md:p-4`}>
       <div className="max-w-full mx-auto">
         <GameHeader
           isDark={isDark}

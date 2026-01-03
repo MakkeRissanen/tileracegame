@@ -43,10 +43,11 @@ export default function MainGameLayout({
   adminBombVisibility,
 }: MainGameLayoutProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-6">
+      {/* Mobile: Stack everything vertically, Desktop: Side by side layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3">
         {/* Left Sidebar - Teams */}
-        <div>
+        <div className="order-2 lg:order-1">
           <TeamsSidebar
             game={game}
             isDark={isDark}
@@ -65,12 +66,23 @@ export default function MainGameLayout({
         </div>
 
         {/* Right Side - Race Board with Player Points & Event Log beside it */}
-        <div className="space-y-6">
+        <div className="space-y-3 md:space-y-6 order-1 lg:order-2">
           {/* Race Board with Player Points and Event Log */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_260px] gap-4">
-            <RaceBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} adminBombVisibility={adminBombVisibility} />
-            <PlayerPointsPanel game={game} isDark={isDark} />
-            <EventLog game={game} isDark={isDark} isAdmin={isAdmin} adminBombVisibility={adminBombVisibility} />
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_220px_260px] gap-3 md:gap-4">
+            {/* Race Board - Always first on mobile */}
+            <div className="order-1">
+              <RaceBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} adminBombVisibility={adminBombVisibility} />
+            </div>
+            
+            {/* Player Points - Second on mobile, middle on desktop */}
+            <div className="order-2">
+              <PlayerPointsPanel game={game} isDark={isDark} />
+            </div>
+            
+            {/* Event Log - Third on mobile, right on desktop */}
+            <div className="order-3">
+              <EventLog game={game} isDark={isDark} isAdmin={isAdmin} adminBombVisibility={adminBombVisibility} />
+            </div>
           </div>
         </div>
       </div>

@@ -127,7 +127,7 @@ export const POWERUP_DEFS: PowerupDef[] = [
   { id: "timeBomb", name: "Time Bomb", kind: "self", description: "Mark your current tile with a time bomb. The next team to land on it gets pushed back 2 tiles. Cannot trigger on yourself." },
   { id: "stealPowerup", name: "Steal Powerup", kind: "targetPowerup", description: "Steal a powerup from another team's inventory. Insured powerups cannot be stolen." },
   { id: "cooldownLock", name: "Cooldown Lock", kind: "target", description: "Lock a team's powerup cooldown for an additional 2 tiles. They must complete 2 extra tiles before using powerups again." },
-  { id: "randomizeRandomTile", name: "Randomize Random Tile", kind: "change", description: "Randomly selects a tile on the board and changes it to a random task from ANY difficulty pool. The tile's difficulty can change! Can use any task (even if already used elsewhere). Cannot target tiles behind the farthest team, altered tiles (changed/doubled/copied), the final tile, or tiles where teams are standing." },
+  { id: "randomizeRandomTile", name: "Randomize Random Tile", kind: "change", description: "Randomly selects a tile on the board and changes it to a random task from ANY difficulty pool. The tile's difficulty can change! Can use any task (even if already used elsewhere). Cannot target tiles behind the farthest team, altered tiles (changed/doubled/copied), the final tile, tiles where teams are standing, or tiles hidden by fog of war." },
   { id: "mysteryPowerup", name: "Mystery Powerup", kind: "self", description: "Opens a lootbox that gives you a random powerup. Possible rewards: Skip 1 tile, Make other team go backward 1 tile, Powerup Insurance, Steal Powerup, Cooldown Lock, Randomize Random Tile, or Clear powerup cooldown." },
 ];
 

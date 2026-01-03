@@ -333,6 +333,16 @@ export function handleUsePowerup(
     // Find the farthest team position
     const farthestPos = Math.max(...game.teams.map(t => t.pos), 1);
     
+    // Check if a tile is visible (not hidden by fog of war)
+    const isVisible = (n: number) => {
+      // If fog of war is disabled for everyone, all tiles are visible
+      if (game.fogOfWarDisabled === "all") return true;
+      // If fog of war is disabled for admin only, all tiles are visible
+      if (game.fogOfWarDisabled === "admin") return true;
+      // Otherwise, check if the tile is in the revealed tiles list
+      return game.revealedTiles?.includes(n) ?? false;
+    };
+    
     const eligibleTiles = game.raceTiles.filter(tile => 
       tile.n >= 2 && // Not tile 1
       tile.n < MAX_TILE && // Not final tile
@@ -341,7 +351,8 @@ export function handleUsePowerup(
       !occupiedTiles.has(tile.n) && // Not occupied by a team
       !doubledTiles.has(tile.n) && // Not a doubled tile
       !copyPasteTiles.has(tile.n) && // Not a pasted tile
-      !copiedFromTiles.has(tile.n) // Not a copied-from tile
+      !copiedFromTiles.has(tile.n) && // Not a copied-from tile
+      isVisible(tile.n) // Only visible tiles (not hidden by fog of war)
     );
 
     if (eligibleTiles.length === 0) {

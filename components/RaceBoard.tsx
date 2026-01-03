@@ -106,10 +106,10 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false, adminBombVisibility 
         onClick={() => handleTileClick(tile)}
         className={`
           ${final ? "col-span-4" : "col-span-1"}
-          ${final ? "h-48" : "h-36"}
+          ${final ? "h-32 md:h-48" : "h-24 md:h-36"}
           ${revealed ? difficultyColors[tile.difficulty as 1 | 2 | 3] : isDark ? "bg-slate-800" : "bg-slate-700"}
           border-2 ${revealed ? difficultyBorderColors[tile.difficulty as 1 | 2 | 3] : isDark ? "border-slate-700" : "border-slate-600"}
-          rounded-xl shadow-lg
+          rounded-lg md:rounded-xl shadow-lg
           relative overflow-hidden
           transition-all duration-200
           ${myTeam?.pos === tile.n ? "ring-2 ring-blue-400" : ""}
@@ -117,7 +117,7 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false, adminBombVisibility 
         `}
       >
         {/* Tile Number */}
-        <div className={`absolute top-1 left-2 text-xs font-mono ${revealed ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`}>
+        <div className={`absolute top-0.5 md:top-1 left-1 md:left-2 text-xs font-mono ${revealed ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`}>
           {tile.n}
         </div>
 
@@ -220,13 +220,13 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false, adminBombVisibility 
 
   return (
     <>
-      <div className={`space-y-3 w-full ${isDark ? "text-white" : "text-slate-900"}`}>
+      <div className={`space-y-2 md:space-y-3 w-full ${isDark ? "text-white" : "text-slate-900"}`}>
         {serpentineRows.map((row, rowIndex) => {
           const rowType = rowIndex % 4;
           const tilesToRender = row.isReversed ? [...row.tiles].reverse() : row.tiles;
           
           return (
-            <div key={rowIndex} className="grid grid-cols-4 gap-3">
+            <div key={rowIndex} className="grid grid-cols-4 gap-2 md:gap-3">
               {/* Empty cells for alignment */}
               {rowType === 1 && (
                 <>
