@@ -5,9 +5,28 @@ import { GameState } from "@/types/game";
 interface EventLogProps {
   game: GameState;
   isDark: boolean;
+  isAdmin?: boolean;
+  adminBombVisibility?: boolean;
 }
 
-export default function EventLog({ game, isDark }: EventLogProps) {
+export default function EventLog({ game, isDark, isAdmin = false, adminBombVisibility = false }: EventLogProps) {
+  // Filter out time bomb secret logs unless admin has visibility enabled
+  const canSeeBombSecrets = isAdmin && adminBombVisibility;
+  
+  // Debug: Check what's in the actual log entries
+  const secretLogsDebug = (game.log || []).filter(entry => entry.isTimeBombSecret).map(entry => ({
+    id: entry.id,
+    message: entry.message.substring(0, 50),
+    hasFlag: entry.isTimeBombSecret
+  }));
+  
+  const visibleLogs = (game.log || []).filter(entry => {
+    if (entry.isTimeBombSecret && !canSeeBombSecrets) {
+      return false;
+    }
+    return true;
+  });
+  
   const renderEventLogEntry = (message: string) => {
     const teams = game.teams || [];
     const teamNames = teams.map((t) => t.name);
@@ -194,8 +213,8 @@ export default function EventLog({ game, isDark }: EventLogProps) {
         `}
       >
         <div className="space-y-2 pr-[3px]">
-          {game.log && game.log.length > 0 ? (
-            game.log.map((entry) => (
+          {visibleLogs.length > 0 ? (
+            visibleLogs.map((entry) => (
               <div key={entry.id}>
                 <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   {new Date(entry.ts).toLocaleString()} •{' '}

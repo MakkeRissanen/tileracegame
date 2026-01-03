@@ -11,9 +11,10 @@ interface RaceBoardProps {
   isDark: boolean;
   myTeam: Team | null;
   isAdmin?: boolean;
+  adminBombVisibility?: boolean;
 }
 
-function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
+function RaceBoard({ game, isDark, myTeam, isAdmin = false, adminBombVisibility = false }: RaceBoardProps) {
   const [selectedTile, setSelectedTile] = useState<RaceTile | null>(null);
   const difficultyColors = {
     1: "bg-emerald-800",
@@ -167,6 +168,19 @@ function RaceBoard({ game, isDark, myTeam, isAdmin = false }: RaceBoardProps) {
         {/* Status Badges */}
         {revealed && (
           <div className="absolute bottom-12 right-1 flex gap-1">
+            {game.timeBombTiles && game.timeBombTiles[tile.n] && (() => {
+              const bombOwner = game.timeBombTiles[tile.n];
+              // Show bomb if: 1) viewing team placed it, OR 2) admin with visibility enabled
+              const isOwnBomb = myTeam?.id === bombOwner;
+              const canSeeBomb = isOwnBomb || (isAdmin && adminBombVisibility);
+              if (!canSeeBomb) return null;
+              
+              return (
+                <span title="Time Bomb! Next team to land here gets pushed back 2 tiles" className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-red-600 text-white border-red-400" : "bg-red-500 text-white border-red-300"} animate-pulse`}>
+                  💣
+                </span>
+              );
+            })()}
             {game.copyPasteTiles?.includes(tile.n) && (
               <span title="Task was copied from another tile" className={`px-3 py-1.5 rounded-lg text-lg font-bold shadow-lg border-2 ${isDark ? "bg-blue-600 text-white border-blue-400" : "bg-blue-500 text-white border-blue-300"}`}>
                 📋
@@ -297,9 +311,11 @@ export default memo(RaceBoard, (prevProps, nextProps) => {
     prevProps.myTeam?.id === nextProps.myTeam?.id &&
     prevProps.myTeam?.pos === nextProps.myTeam?.pos &&
     prevProps.isAdmin === nextProps.isAdmin &&
+    prevProps.adminBombVisibility === nextProps.adminBombVisibility &&
     prevProps.game.raceTiles === nextProps.game.raceTiles &&
     prevProps.game.revealedTiles === nextProps.game.revealedTiles &&
     prevProps.game.fogOfWarDisabled === nextProps.game.fogOfWarDisabled &&
+    prevProps.game.timeBombTiles === nextProps.game.timeBombTiles &&
     JSON.stringify(prevProps.game.teams?.map(t => ({ id: t.id, pos: t.pos, name: t.name }))) === 
     JSON.stringify(nextProps.game.teams?.map(t => ({ id: t.id, pos: t.pos, name: t.name })))
   );

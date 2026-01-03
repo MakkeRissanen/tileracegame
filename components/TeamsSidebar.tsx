@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, memo } from "react";
+import { useState, memo, useMemo } from "react";
 import { GameState, Team, POWERUP_DEFS } from "@/types/game";
 import { Button, Modal, inputClass } from "./ui";
 import { diffTint } from "@/lib/gameUtils";
@@ -11,14 +11,14 @@ interface TeamsSidebarProps {
   myTeam: Team | null;
   isAdmin?: boolean;
   adminName?: string;
-  onCompleteTile: (teamId: string, playerNames: string[], adminName?: string) => void;
   onUsePowerup: () => void;
-  onClaimPowerup?: (tileId: number) => void;
   onOpenClaimPowerup?: (teamId: string) => void;
   onAdminUsePowerup?: (teamId: string) => void;
   onEditTeam?: (teamId: string) => void;
   onClearCooldown?: (teamId: string) => void;
-  onAdminToggleCooldown?: (teamId: string) => void;
+  onAdminToggleCooldown?: (teamId: string, currentValue: number) => void;
+  dispatch: (event: any) => void;
+  adminBombVisibility: boolean;
 }
 
 function TeamsSidebar({
@@ -27,14 +27,14 @@ function TeamsSidebar({
   myTeam,
   isAdmin = false,
   adminName,
-  onCompleteTile,
   onUsePowerup,
-  onClaimPowerup,
   onOpenClaimPowerup,
   onAdminUsePowerup,
   onEditTeam,
   onClearCooldown,
   onAdminToggleCooldown,
+  dispatch,
+  adminBombVisibility,
 }: TeamsSidebarProps) {
   const MAX_TILE = 56;
   const [showPlayerModal, setShowPlayerModal] = useState(false);
@@ -43,14 +43,23 @@ function TeamsSidebar({
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [inventoryTeamId, setInventoryTeamId] = useState<string | null>(null);
 
-  const getProgress = (team: Team) => {
-    return Math.round((team.pos / MAX_TILE) * 100);
-  };
+  // Memoize tile lookup to prevent flickering
+  const raceTileMap = useMemo(() => {
+    const map = new Map<number, string>();
+    game.raceTiles.forEach((tile) => {
+      map.set(tile.n, tile.label);
+    });
+    return map;
+  }, [game.raceTiles]);
 
-  const getCurrentTile = (team: Team) => {
-    const tile = game.raceTiles.find((t) => t.n === team.pos);
-    return tile?.label || `Tile ${team.pos}`;
-  };
+  // Memoize team data calculations
+  const teamData = useMemo(() => {
+    return game.teams?.map((team) => ({
+      team,
+      progress: Math.round((team.pos / MAX_TILE) * 100),
+      currentTile: raceTileMap.get(team.pos) || `Tile ${team.pos}`,
+    })) || [];
+  }, [game.teams, raceTileMap]);
 
   const handleOpenPlayerModal = (teamId: string) => {
     setActiveTeamId(teamId);
@@ -96,7 +105,12 @@ function TeamsSidebar({
     }
     
     if (playerNames.length > 0) {
-      onCompleteTile(activeTeamId, playerNames, isAdmin ? (adminName || "Admin") : undefined);
+      dispatch({
+        type: "COMPLETE_TILE",
+        teamId: activeTeamId,
+        playerNames,
+        adminName: isAdmin ? (adminName || "Admin") : undefined,
+      });
       setShowPlayerModal(false);
       setActiveTeamId(null);
       setPlayerCompletions({});
@@ -116,10 +130,8 @@ function TeamsSidebar({
   return (
     <>
       <div className="space-y-4 max-w-[280px]">
-      {game.teams?.map((team) => {
-        const progress = getProgress(team);
+      {teamData.map(({ team, progress, currentTile }) => {
         const isMyTeam = myTeam?.id === team.id;
-        const currentTile = getCurrentTile(team);
 
         return (
           <div
@@ -198,23 +210,34 @@ function TeamsSidebar({
             </div>
 
             {/* Powerup Count - Clickable */}
-            {team.inventory && team.inventory.length > 0 && (
-              <button
-                onClick={() => handleOpenInventory(team.id)}
-                className={`text-xs mb-2 hover:underline cursor-pointer transition-colors ${
-                  isDark 
-                    ? "text-slate-400 hover:text-slate-300" 
-                    : "text-slate-600 hover:text-slate-700"
-                }`}
-              >
-                ⚡ {team.inventory.length} powerup{team.inventory.length > 1 ? "s" : ""}
-              </button>
-            )}
+            {team.inventory && team.inventory.length > 0 && (() => {
+              const isViewingOwnTeam = myTeam?.id === team.id;
+              // Teams can always see their own timeBombs; admins can see others' bombs if visibility enabled
+              const canSeeBombs = isViewingOwnTeam || (isAdmin && adminBombVisibility);
+              const visibleInventory = canSeeBombs 
+                ? team.inventory 
+                : team.inventory.filter(powerupId => powerupId !== 'timeBomb');
+              
+              if (visibleInventory.length === 0) return null;
+              
+              return (
+                <button
+                  onClick={() => handleOpenInventory(team.id)}
+                  className={`text-xs mb-2 hover:underline cursor-pointer transition-colors ${
+                    isDark 
+                      ? "text-slate-400 hover:text-slate-300" 
+                      : "text-slate-600 hover:text-slate-700"
+                  }`}
+                >
+                  ⚡ {visibleInventory.length} powerup{visibleInventory.length > 1 ? "s" : ""}
+                </button>
+              );
+            })()}
 
             {/* Cooldown Status */}
-            {team.powerupCooldown && (
+            {team.powerupCooldown > 0 && (
               <p className={`text-xs mb-2 ${isDark ? "text-orange-400" : "text-orange-600"}`}>
-                🔒 Powerup Cooldown Active
+                🔒 Powerup Cooldown: {team.powerupCooldown} tile{team.powerupCooldown !== 1 ? 's' : ''} remaining
               </p>
             )}
 
@@ -224,6 +247,7 @@ function TeamsSidebar({
                 <div className={`text-xs font-semibold mb-2 ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
                   👑 Admin Controls
                 </div>
+                
                 <Button
                   variant="secondary"
                   isDark={isDark}
@@ -248,20 +272,20 @@ function TeamsSidebar({
                   {/* Use Powerup Button - with Clear overlay if cooldown active */}
                   <div className="relative">
                     <Button
-                      variant={team.powerupCooldown ? "danger" : "secondary"}
+                      variant={team.powerupCooldown > 0 ? "danger" : "secondary"}
                       isDark={isDark}
                       className={`w-full text-xs h-[52px] ${
-                        team.powerupCooldown 
+                        team.powerupCooldown > 0 
                           ? team.inventory?.includes("clearCooldown")
                             ? "flex flex-col justify-start pt-1"
                             : "flex flex-col items-center justify-center"
                           : "flex flex-col items-center justify-center pt-4"
                       }`}
                       onClick={() => onAdminUsePowerup && onAdminUsePowerup(team.id)}
-                      disabled={team.powerupCooldown || !team.inventory || team.inventory.length === 0}
+                      disabled={team.powerupCooldown > 0 || !team.inventory || team.inventory.length === 0}
                     >
-                      {team.powerupCooldown ? (
-                        "Cooldown 🔒"
+                      {team.powerupCooldown > 0 ? (
+                        <span>🔒 Cooldown ({team.powerupCooldown} tile{team.powerupCooldown !== 1 ? 's' : ''})</span>
                       ) : (
                         <>
                           <span>Use Powerup</span>
@@ -269,7 +293,7 @@ function TeamsSidebar({
                         </>
                       )}
                     </Button>
-                    {team.powerupCooldown && team.inventory?.includes("clearCooldown") && (
+                    {team.powerupCooldown > 0 && team.inventory?.includes("clearCooldown") && (
                       <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
                         <button
                           onClick={() => {
@@ -293,32 +317,30 @@ function TeamsSidebar({
                 {/* Admin Cooldown Toggle - styled similar to team view */}
                 <div className="relative">
                   <Button
-                    variant={team.powerupCooldown ? "danger" : "secondary"}
+                    variant={team.powerupCooldown > 0 ? "danger" : "secondary"}
                     isDark={isDark}
-                    className={`w-full text-xs h-[52px] ${
-                      team.powerupCooldown 
-                        ? "flex flex-col justify-start pt-1"
-                        : "flex flex-col items-center justify-center"
-                    }`}
+                    className="w-full text-xs h-[52px] flex flex-col items-center justify-center"
                     onClick={() => {
-                      if (!team.powerupCooldown) {
-                        if (window.confirm(`Enable powerup cooldown for ${team.name}?`)) {
-                          onAdminToggleCooldown && onAdminToggleCooldown(team.id);
-                        }
-                      }
+                      onAdminToggleCooldown && onAdminToggleCooldown(team.id, team.powerupCooldown);
                     }}
-                    disabled={team.powerupCooldown}
                   >
-                    {team.powerupCooldown ? "Cooldown 🔒" : "Set Cooldown"}
+                    {team.powerupCooldown > 0 ? (
+                      <>
+                        <div className="font-semibold">🔒 Cooldown: {team.powerupCooldown}</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">👑 Click to change</div>
+                      </>
+                    ) : (
+                      <>
+                        <div>Set Cooldown</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">👑 Admin</div>
+                      </>
+                    )}
                   </Button>
-                  {team.powerupCooldown && (
+                  {false && team.powerupCooldown > 0 && (
                     <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm(`Disable cooldown for ${team.name}?`)) {
-                            onAdminToggleCooldown && onAdminToggleCooldown(team.id);
-                          }
                         }}
                         className={`text-[9px] py-0.5 px-2 rounded font-medium transition-all ${
                           isDark
@@ -361,20 +383,20 @@ function TeamsSidebar({
                   {/* Use Powerup Button - with Clear overlay if cooldown active */}
                   <div className="relative">
                     <Button
-                      variant={team.powerupCooldown ? "danger" : "secondary"}
+                      variant={team.powerupCooldown > 0 ? "danger" : "secondary"}
                       isDark={isDark}
                       className={`w-full text-xs h-[52px] ${
-                        team.powerupCooldown 
+                        team.powerupCooldown > 0 
                           ? team.inventory?.includes("clearCooldown")
                             ? "flex flex-col justify-start pt-1"
                             : "flex flex-col items-center justify-center"
                           : "flex flex-col items-center justify-center pt-4"
                       }`}
                       onClick={onUsePowerup}
-                      disabled={team.powerupCooldown || !team.inventory || team.inventory.length === 0}
+                      disabled={team.powerupCooldown > 0 || !team.inventory || team.inventory.length === 0}
                     >
-                      {team.powerupCooldown ? (
-                        "Cooldown 🔒"
+                      {team.powerupCooldown > 0 ? (
+                        <span>🔒 Cooldown ({team.powerupCooldown} tile{team.powerupCooldown !== 1 ? 's' : ''})</span>
                       ) : (
                         <>
                           <span>Use Powerup</span>
@@ -382,7 +404,7 @@ function TeamsSidebar({
                         </>
                       )}
                     </Button>
-                    {team.powerupCooldown && team.inventory?.includes("clearCooldown") && (
+                    {team.powerupCooldown > 0 && team.inventory?.includes("clearCooldown") && (
                       <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
                         <button
                           onClick={() => {
@@ -554,9 +576,18 @@ function TeamsSidebar({
         const team = game.teams.find(t => t.id === inventoryTeamId);
         if (!team) return null;
 
+        const isViewingOwnTeam = myTeam?.id === inventoryTeamId;
+        // Teams can always see their own timeBombs; admins can see others' bombs if visibility enabled
+        const canSeeBombs = isViewingOwnTeam || (isAdmin && adminBombVisibility);
         const inventory = team.inventory || [];
+        
+        // Filter out time bombs if not authorized to see them
+        const visibleInventory = canSeeBombs 
+          ? inventory 
+          : inventory.filter(powerupId => powerupId !== 'timeBomb');
+        
         const powerupCounts: Record<string, number> = {};
-        inventory.forEach(powerupId => {
+        visibleInventory.forEach(powerupId => {
           powerupCounts[powerupId] = (powerupCounts[powerupId] || 0) + 1;
         });
 
@@ -572,38 +603,53 @@ function TeamsSidebar({
                 <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   No powerups in inventory
                 </div>
+              ) : visibleInventory.length === 0 ? (
+                <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  No visible powerups
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {Object.entries(powerupCounts).map(([powerupId, count]) => (
-                    <div
-                      key={powerupId}
-                      className={`p-3 rounded-lg border ${
-                        isDark 
-                          ? 'bg-slate-800 border-slate-700' 
-                          : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                            {getPowerupName(powerupId)}
+                  {Object.entries(powerupCounts).map(([powerupId, count]) => {
+                    // Check if this powerup is insured
+                    const firstIndex = inventory.indexOf(powerupId);
+                    const isInsured = (team?.insuredPowerups || []).includes(firstIndex);
+                    
+                    return (
+                      <div
+                        key={powerupId}
+                        className={`p-3 rounded-lg border ${
+                          isDark 
+                            ? 'bg-slate-800 border-slate-700' 
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                              {getPowerupName(powerupId)} {isInsured && '🛡️'}
+                            </div>
+                            <div className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                              {POWERUP_DEFS.find(p => p.id === powerupId)?.description || ''}
+                              {isInsured && (
+                                <span className={`ml-2 font-semibold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                  (Insured)
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {POWERUP_DEFS.find(p => p.id === powerupId)?.description || ''}
-                          </div>
+                          {count > 1 && (
+                            <div className={`ml-3 px-2 py-1 rounded-full text-sm font-semibold ${
+                              isDark 
+                                ? 'bg-blue-900 text-blue-200' 
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              ×{count}
+                            </div>
+                          )}
                         </div>
-                        {count > 1 && (
-                          <div className={`ml-3 px-2 py-1 rounded-full text-sm font-semibold ${
-                            isDark 
-                              ? 'bg-blue-900 text-blue-200' 
-                              : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            ×{count}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -629,6 +675,7 @@ export default memo(TeamsSidebar, (prevProps, nextProps) => {
     prevProps.isDark === nextProps.isDark &&
     prevProps.myTeam?.id === nextProps.myTeam?.id &&
     prevProps.isAdmin === nextProps.isAdmin &&
+    prevProps.adminBombVisibility === nextProps.adminBombVisibility &&
     JSON.stringify(prevProps.game.teams?.map(t => ({ 
       id: t.id, 
       name: t.name, 

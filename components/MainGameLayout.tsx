@@ -4,9 +4,7 @@ import { GameState, Team } from "@/types/game";
 import TeamsSidebar from "./TeamsSidebar";
 import RaceBoard from "./RaceBoard";
 import EventLog from "./EventLog";
-import PowerupTilesBoard from "./PowerupTilesBoard";
 import TaskPoolsSection from "./TaskPoolsSection";
-import GameBoard from "./GameBoard";
 import PlayerPointsPanel from "./PlayerPointsPanel";
 
 interface MainGameLayoutProps {
@@ -15,17 +13,16 @@ interface MainGameLayoutProps {
   myTeam: Team | null;
   isAdmin: boolean;
   adminName?: string;
-  onCompleteTile: (teamId: string, playerNames: string[], adminName?: string) => void;
   onUsePowerup: () => void;
-  onClaimPowerup: (tileId: number) => void;
   onOpenClaimPowerup: (teamId: string) => void;
   onClearPools: () => void;
   onAdminUsePowerup?: (teamId: string) => void;
   onEditTeam?: (teamId: string) => void;
   onClearCooldown?: (teamId: string) => void;
-  onAdminToggleCooldown?: (teamId: string) => void;
-  onEditPowerupTile?: (tileId: number) => void;
+  onAdminToggleCooldown?: (teamId: string, currentValue: number) => void;
   onEditPoolTask?: (taskId: string) => void;
+  dispatch: (event: any) => void;
+  adminBombVisibility: boolean;
 }
 
 export default function MainGameLayout({
@@ -34,17 +31,16 @@ export default function MainGameLayout({
   myTeam,
   isAdmin,
   adminName,
-  onCompleteTile,
   onUsePowerup,
-  onClaimPowerup,
   onOpenClaimPowerup,
   onClearPools,
   onAdminUsePowerup,
   onEditTeam,
   onClearCooldown,
   onAdminToggleCooldown,
-  onEditPowerupTile,
   onEditPoolTask,
+  dispatch,
+  adminBombVisibility,
 }: MainGameLayoutProps) {
   return (
     <div className="space-y-6">
@@ -57,14 +53,14 @@ export default function MainGameLayout({
             myTeam={myTeam}
             isAdmin={isAdmin}
             adminName={adminName}
-            onCompleteTile={onCompleteTile}
             onUsePowerup={onUsePowerup}
-            onClaimPowerup={onClaimPowerup}
             onOpenClaimPowerup={onOpenClaimPowerup}
             onAdminUsePowerup={onAdminUsePowerup}
             onEditTeam={onEditTeam}
             onClearCooldown={onClearCooldown}
             onAdminToggleCooldown={onAdminToggleCooldown}
+            dispatch={dispatch}
+            adminBombVisibility={adminBombVisibility}
           />
         </div>
 
@@ -72,25 +68,12 @@ export default function MainGameLayout({
         <div className="space-y-6">
           {/* Race Board with Player Points and Event Log */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_260px] gap-4">
-            <RaceBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} />
+            <RaceBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} adminBombVisibility={adminBombVisibility} />
             <PlayerPointsPanel game={game} isDark={isDark} />
-            <EventLog game={game} isDark={isDark} />
+            <EventLog game={game} isDark={isDark} isAdmin={isAdmin} adminBombVisibility={adminBombVisibility} />
           </div>
-          
-          {/* Current Tile */}
-          <GameBoard game={game} isDark={isDark} myTeam={myTeam} isAdmin={isAdmin} adminName={adminName || undefined} onCompleteTile={onCompleteTile} />
         </div>
       </div>
-
-      {/* Powerup Tiles Board */}
-      <PowerupTilesBoard
-        game={game}
-        isDark={isDark}
-        myTeam={myTeam}
-        isAdmin={isAdmin}
-        onClaimPowerup={onClaimPowerup}
-        onEditPowerupTile={onEditPowerupTile}
-      />
 
       {/* Task Pools (Admin Only) */}
       {isAdmin && (

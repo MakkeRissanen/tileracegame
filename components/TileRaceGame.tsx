@@ -6,12 +6,15 @@ import { useTeamSession } from "@/hooks/useTeamSession";
 import { useGameHandlers } from "@/hooks/useGameHandlers";
 import { GameState, Team, PowerupTile } from "@/types/game";
 import ClaimPowerupModal from "./ClaimPowerupModal";
+import SacrificeForTimeBombModal from "./SacrificeForTimeBombModal";
 import UsePowerupModal from "./UsePowerupModal";
 import TaskPoolsSection from "./TaskPoolsSection";
 import GameHeader from "./GameHeader";
 import AdminOptionsDropdown from "./AdminOptionsDropdown";
 import AdminLoginModal from "./AdminLoginModal";
 import VictoryModal from "./VictoryModal";
+import MysteryPowerupResultModal from "./MysteryPowerupResultModal";
+import TimeBombTriggerModal from "./TimeBombTriggerModal";
 import TeamSelect from "./TeamSelect";
 import MainGameLayout from "./MainGameLayout";
 import FormTeamsModal from "./FormTeamsModal";
@@ -68,7 +71,13 @@ export default function TileRaceGame() {
   const [claimTeamId, setClaimTeamId] = useState<string | null>(null);
   const [claimSelectedPowerupTileId, setClaimSelectedPowerupTileId] = useState<number | null>(null);
   const [claimConfirmOpen, setClaimConfirmOpen] = useState(false);
+  const [showSacrificeModal, setShowSacrificeModal] = useState(false);
   const [powerupClaimPickerOpen, setPowerupClaimPickerOpen] = useState(false);
+  const [showMysteryResult, setShowMysteryResult] = useState(false);
+  const [mysteryRewardId, setMysteryRewardId] = useState<string | null>(null);
+  const [showBombTrigger, setShowBombTrigger] = useState(false);
+  const [bombTriggerData, setBombTriggerData] = useState<{ bomberName: string; fromTile: number; toTile: number } | null>(null);
+  const [adminBombVisibility, setAdminBombVisibility] = useState(false);
 
   // Handle team login with authentication
   const handleTeamLogin = async (team: Team, password: string) => {
@@ -157,6 +166,93 @@ export default function TileRaceGame() {
       }
     }
   }, [game.fogOfWarDisabled, game.log]);
+
+  // Detect mystery powerup usage for current team
+  useEffect(() => {
+    if (myTeam && game.log && game.log.length > 0) {
+      const lastLog = game.log[game.log.length - 1];
+      const mysteryPattern = new RegExp(`${myTeam.name} used Mystery Powerup and received (.+?)! 🎁`);
+      const match = lastLog.message.match(mysteryPattern);
+      if (match) {
+        const rewardLabel = match[1];
+        const labelToId: Record<string, string> = {
+          "Skip +1": "skip1",
+          "Send Back 1": "back1",
+          "Powerup Insurance": "powerupInsurance",
+          "Steal Powerup": "stealPowerup",
+          "Cooldown Lock": "cooldownLock",
+          "Randomize Random Tile": "randomizeRandomTile",
+          "Clear Cooldown": "clearCooldown"
+        };
+        const rewardId = labelToId[rewardLabel] || "skip1";
+        setMysteryRewardId(rewardId);
+        setShowMysteryResult(true);
+      }
+    }
+  }, [game.log, myTeam]);
+
+  // Detect time bomb placement for current team (secret notification)
+  useEffect(() => {
+    if (myTeam && game.log && game.log.length > 0) {
+      const lastLog = game.log[game.log.length - 1];
+      // Check if this is a secret time bomb log for our team
+      if (lastLog.isTimeBombSecret) {
+        const bombPlacementPattern = new RegExp(`${myTeam.name} (?:used Time Bomb 💣|sacrificed \\d+ powerups for a Time Bomb) → placed time bomb on Tile (\\d+)`);
+        const match = lastLog.message.match(bombPlacementPattern);
+        if (match) {
+          const tileNumber = match[1];
+          alert(`💣 Time Bomb Planted on Tile ${tileNumber}!\n\n🔒 COMPLETE SECRECY: No one else can see this - not even admins. The bomb is invisible until triggered.`);
+        }
+      }
+    }
+  }, [game.log, myTeam]);
+
+  // Detect time bomb trigger for current team
+  useEffect(() => {
+    if (myTeam && game.log && game.log.length > 0) {
+      const lastLog = game.log[game.log.length - 1];
+      // Look for bomb trigger in the log message
+      const bombPattern = new RegExp(`${myTeam.name} completed.*\n💣 Time bomb triggered! Pushed back from Tile (\d+) to Tile (\d+)`);
+      const match = lastLog.message.match(bombPattern);
+      if (match) {
+        const fromTile = parseInt(match[1], 10);
+        const toTile = parseInt(match[2], 10);
+        // Find bomber name from game state
+        if (game.lastBombTrigger) {
+          const bomberTeam = game.teams.find(t => t.id === game.lastBombTrigger?.bombPlacer);
+          const bomberName = bomberTeam ? bomberTeam.name : "Unknown";
+          setBombTriggerData({ bomberName, fromTile, toTile });
+          setShowBombTrigger(true);
+        }
+      }
+    }
+  }, [game.log, game.lastBombTrigger, myTeam]);
+
+  // Detect mystery powerup usage for current team
+  useEffect(() => {
+    if (myTeam && game.log && game.log.length > 0) {
+      const lastLog = game.log[game.log.length - 1];
+      const mysteryPattern = new RegExp(`${myTeam.name} used Mystery Powerup and received (.+?)! 🎁`);
+      const match = lastLog.message.match(mysteryPattern);
+      if (match) {
+        // Extract the powerup ID from the label - need to reverse lookup
+        const rewardLabel = match[1];
+        // Map common labels to IDs
+        const labelToId: Record<string, string> = {
+          "Skip +1": "skip1",
+          "Send Back 1": "back1",
+          "Powerup Insurance": "powerupInsurance",
+          "Steal Powerup": "stealPowerup",
+          "Cooldown Lock": "cooldownLock",
+          "Randomize Random Tile": "randomizeRandomTile",
+          "Clear Cooldown": "clearCooldown"
+        };
+        const rewardId = labelToId[rewardLabel] || "skip1";
+        setMysteryRewardId(rewardId);
+        setShowMysteryResult(true);
+      }
+    }
+  }, [game.log, myTeam]);
 
   // Wrapper for PowerupTilesBoard - it expects a (tileId: number) => void but we'll just open the modal for myTeam
   const handleClaimPowerupFromBoard = (tileId: number) => {
@@ -284,15 +380,25 @@ export default function TileRaceGame() {
     }
   };
 
-  const handleAdminToggleCooldown = async (teamId: string) => {
+  const handleAdminToggleCooldown = async (teamId: string, currentValue: number) => {
+    const input = prompt(`Set cooldown value for this team (current: ${currentValue} tiles)\nEnter number of tiles (0 to clear):`, currentValue.toString());
+    if (input === null) return; // User cancelled
+    
+    const cooldownValue = parseInt(input, 10);
+    if (isNaN(cooldownValue) || cooldownValue < 0) {
+      alert("Please enter a valid non-negative number");
+      return;
+    }
+    
     try {
       await dispatch({
         type: "ADMIN_TOGGLE_COOLDOWN",
         teamId,
+        cooldownValue,
         adminName: adminName || undefined,
       });
     } catch (err) {
-      alert(`Failed to toggle cooldown: ${err instanceof Error ? err.message : "Unknown error"}`);
+      alert(`Failed to set cooldown: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
@@ -395,14 +501,7 @@ export default function TileRaceGame() {
 
   // Claim powerup handlers
   const handleOpenClaimPowerup = (teamId: string) => {
-    // Check if any team has reached tile 5 or higher
-    const hasTeamReachedTile5 = game.teams.some(team => team.pos >= 5);
-    
-    if (!hasTeamReachedTile5) {
-      alert("Powerup tiles are not available yet. At least one team must complete tile 4 (reach tile 5) before powerups can be claimed.");
-      return;
-    }
-    
+    // Allow opening modal to view powerups, but they'll be disabled if no team has reached tile 5
     setClaimTeamId(teamId);
     setClaimSelectedPowerupTileId(null);
     setClaimConfirmOpen(false);
@@ -492,6 +591,18 @@ export default function TileRaceGame() {
             onChangePassword={() => setShowChangePasswordModal(true)}
             onSetTeamPasswords={() => setShowSetTeamPasswordsModal(true)}
             onUndo={() => { setShowAdminOptions(false); setShowUndoHistoryModal(true); }}
+            adminBombVisibility={adminBombVisibility}
+            onToggleBombVisibility={() => {
+              const newValue = !adminBombVisibility;
+              setAdminBombVisibility(newValue);
+              setShowAdminOptions(false);
+              // Log the visibility change
+              dispatch({
+                type: "ADMIN_LOG_EVENT",
+                message: `👁️ ${adminName} ${newValue ? 'enabled' : 'disabled'} time bomb visibility`,
+                adminName: adminName || "Admin",
+              });
+            }}
           />
         </GameHeader>
 
@@ -509,20 +620,19 @@ export default function TileRaceGame() {
             myTeam={null}
             isAdmin={isAdmin}
             adminName={adminName || undefined}
-            onCompleteTile={handlers.handleCompleteTile}
             onUsePowerup={handleOpenUsePowerup}
-            onClaimPowerup={handleClaimPowerupFromBoard}
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
             onClearCooldown={handleClearCooldown}
             onAdminToggleCooldown={handleAdminToggleCooldown}
-            onEditPowerupTile={handleEditPowerupTile}
             onEditPoolTask={handleEditPoolTask}
             onClearPools={async () => {
               if (!confirm("Clear all task pools?")) return;
               await dispatch({ type: "ADMIN_CLEAR_TASK_POOLS" });
             }}
+            dispatch={dispatch}
+            adminBombVisibility={adminBombVisibility}
           />
         ) : (
           <MainGameLayout
@@ -531,20 +641,19 @@ export default function TileRaceGame() {
             myTeam={myTeam}
             isAdmin={isAdmin}
             adminName={adminName || undefined}
-            onCompleteTile={handlers.handleCompleteTile}
             onUsePowerup={handleOpenUsePowerup}
-            onClaimPowerup={handleClaimPowerupFromBoard}
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
             onClearCooldown={handleClearCooldown}
             onAdminToggleCooldown={handleAdminToggleCooldown}
-            onEditPowerupTile={handleEditPowerupTile}
             onEditPoolTask={handleEditPoolTask}
             onClearPools={async () => {
               if (!confirm("Clear all task pools?")) return;
               await dispatch({ type: "ADMIN_CLEAR_TASK_POOLS" });
             }}
+            dispatch={dispatch}
+            adminBombVisibility={adminBombVisibility}
           />
         )}
 
@@ -600,6 +709,32 @@ export default function TileRaceGame() {
             isDark={isDark}
             winningTeam={winningTeam}
             onClose={() => setShowVictoryModal(false)}
+          />
+        )}
+
+        {/* Mystery Powerup Result Modal */}
+        <MysteryPowerupResultModal
+          isOpen={showMysteryResult}
+          isDark={isDark}
+          rewardPowerupId={mysteryRewardId}
+          onClose={() => {
+            setShowMysteryResult(false);
+            setMysteryRewardId(null);
+          }}
+        />
+
+        {/* Time Bomb Trigger Modal */}
+        {bombTriggerData && (
+          <TimeBombTriggerModal
+            isOpen={showBombTrigger}
+            isDark={isDark}
+            bomberName={bombTriggerData.bomberName}
+            fromTile={bombTriggerData.fromTile}
+            toTile={bombTriggerData.toTile}
+            onClose={() => {
+              setShowBombTrigger(false);
+              setBombTriggerData(null);
+            }}
           />
         )}
 
@@ -741,6 +876,9 @@ export default function TileRaceGame() {
             game={game}
             onClose={handleCloseClaimModals}
             onSelectTile={handleSelectPowerupTile}
+            onSacrificeForTimeBomb={() => {
+              setShowSacrificeModal(true);
+            }}
           />
         )}
 
@@ -761,6 +899,31 @@ export default function TileRaceGame() {
             team={game.teams.find((t) => t.id === claimTeamId)!}
             onClose={handleCloseClaimModals}
             onConfirm={handleClaimPowerupWithPlayers}
+          />
+        )}
+
+        {/* Sacrifice for Time Bomb Modal */}
+        {showSacrificeModal && claimTeamId && (
+          <SacrificeForTimeBombModal
+            isOpen={true}
+            team={game.teams.find((t) => t.id === claimTeamId)!}
+            onClose={() => setShowSacrificeModal(false)}
+            onConfirm={(powerupIndices) => {
+              // Get the powerup IDs from indices
+              const team = game.teams.find((t) => t.id === claimTeamId);
+              if (!team) return;
+              
+              const sacrificedPowerups = powerupIndices.map(idx => team.inventory[idx]);
+              
+              dispatch({
+                type: "SACRIFICE_FOR_TIMEBOMB",
+                teamId: claimTeamId,
+                sacrificedPowerups,
+                adminName: isAdmin && adminName ? adminName : undefined,
+              });
+              
+              setShowSacrificeModal(false);
+            }}
           />
         )}
 

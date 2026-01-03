@@ -69,7 +69,7 @@ export default function TeamSelect({ isDark, onSelectTeam, onAdminLogin, isLoadi
       members: [],
       captain: "",
       playerPoints: {},
-      powerupCooldown: false,
+      powerupCooldown: 0,
     };
     
     onSelectTeam(tempTeam, trimmedPassword);

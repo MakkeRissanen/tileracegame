@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { GameState } from "@/types/game";
 import { Card } from "./ui";
 
@@ -9,18 +10,25 @@ interface PlayerPointsPanelProps {
 }
 
 export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelProps) {
-  // Collect all player points from all teams
-  const allPlayerPoints: Record<string, number> = {};
+  // Collect individual player points (each player belongs to one team only)
+  const allPlayerPoints = useMemo(() => {
+    const points: Record<string, number> = {};
+    
+    game.teams?.forEach((team) => {
+      if (team.playerPoints) {
+        Object.entries(team.playerPoints).forEach(([player, playerPoints]) => {
+          points[player] = playerPoints;
+        });
+      }
+    });
+    
+    return points;
+  }, [game.teams]);
   
-  game.teams?.forEach((team) => {
-    if (team.playerPoints) {
-      Object.keys(team.playerPoints).forEach((player) => {
-        allPlayerPoints[player] = (allPlayerPoints[player] || 0) + team.playerPoints[player];
-      });
-    }
-  });
-  
-  const sortedPlayers = Object.entries(allPlayerPoints).sort(([, a], [, b]) => b - a);
+  const sortedPlayers = useMemo(() => 
+    Object.entries(allPlayerPoints).sort(([, a], [, b]) => b - a),
+    [allPlayerPoints]
+  );
 
   // Find which team each player belongs to
   const getPlayerTeams = (playerName: string): string[] => {
@@ -44,7 +52,13 @@ export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelPro
           No players have earned points yet
         </p>
       ) : (
-        <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div 
+          className="space-y-2 max-h-64 overflow-y-auto"
+          style={{
+            scrollbarWidth: "thin",
+            scrollbarColor: isDark ? "#475569 #1e293b" : "#cbd5e1 #f1f5f9",
+          }}
+        >
           {sortedPlayers.map(([playerName, points], idx) => {
             const teams = getPlayerTeams(playerName);
             const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : "";
@@ -54,7 +68,7 @@ export default function PlayerPointsPanel({ game, isDark }: PlayerPointsPanelPro
                 key={playerName}
                 className={`flex items-center justify-between p-2 rounded ${
                   isDark
-                    ? "bg-slate-700/30"
+                    ? "bg-slate-800/50"
                     : "bg-slate-50"
                 }`}
               >

@@ -51,9 +51,10 @@ export interface Team {
   members: string[];
   captain: string;
   playerPoints: Record<string, number>;
-  powerupCooldown: boolean;
+  powerupCooldown: number; // Number of tiles until cooldown clears (0 = no cooldown)
   password: string | null;
   discordWebhookSlot?: number | null; // 1-5 for numbered webhook slots
+  insuredPowerups?: number[]; // Array of inventory indices that are insured
 }
 
 export interface Admin {
@@ -67,6 +68,7 @@ export interface LogEntry {
   id: string;
   ts: number;
   message: string;
+  isTimeBombSecret?: boolean;
 }
 
 export interface GameState {
@@ -81,6 +83,8 @@ export interface GameState {
   doubledTiles: number[];
   doubledTilesInfo: Record<number, { useDifficultyPoints: boolean }>;
   revealedTiles: number[];
+  timeBombTiles: Record<number, string>; // tileNumber -> teamId who placed it
+  lastBombTrigger?: { bombPlacer: string; victim: string; tile: number; pushedTo: number; timestamp: number }; // Latest bomb trigger for Discord
   fogOfWarDisabled?: "none" | "admin" | "all";
   playerPoints: Record<string, number>;
   teams: Team[];
@@ -117,6 +121,14 @@ export const POWERUP_DEFS: PowerupDef[] = [
   { id: "doubleEasy", name: "Double requirement on an easy tile", kind: "doubleTile", description: "Make an easy tile require twice as many completions." },
   { id: "doubleMedium", name: "Double requirement on a medium tile", kind: "doubleTile", description: "Make a medium tile require twice as many completions." },
   { id: "doubleHard", name: "Double requirement on a hard tile", kind: "doubleTile", description: "Make a hard tile require twice as many completions." },
+  
+  // New powerups - mechanics to be implemented
+  { id: "powerupInsurance", name: "Powerup Insurance", kind: "selfPowerup", description: "Protects one of your powerups from being disabled or stolen. Select a powerup to insure it." },
+  { id: "timeBomb", name: "Time Bomb", kind: "self", description: "Mark your current tile with a time bomb. The next team to land on it gets pushed back 2 tiles. Cannot trigger on yourself." },
+  { id: "stealPowerup", name: "Steal Powerup", kind: "targetPowerup", description: "Steal a powerup from another team's inventory. Insured powerups cannot be stolen." },
+  { id: "cooldownLock", name: "Cooldown Lock", kind: "target", description: "Lock a team's powerup cooldown for an additional 2 tiles. They must complete 2 extra tiles before using powerups again." },
+  { id: "randomizeRandomTile", name: "Randomize Random Tile", kind: "change", description: "Randomly selects a tile on the board and changes it to a random task from its difficulty pool. Cannot target already altered tiles, the final tile, or tiles where teams are standing." },
+  { id: "mysteryPowerup", name: "Mystery Powerup", kind: "self", description: "[PLACEHOLDER] Mechanics to be defined." },
 ];
 
 // Game Events
@@ -141,6 +153,7 @@ export type GameEvent =
       futureTile?: number;
       changeTaskId?: string;
       targetPowerupId?: string;
+      insurePowerupIndex?: number;
       adminName?: string;
       oldTaskLabel?: string;
       newTaskLabel?: string;
@@ -203,7 +216,8 @@ export type GameEvent =
   | { type: "ADMIN_IMPORT_POWERUPS"; powerups: Array<{ powerupType: string; label: string; pointsPerCompletion: number; maxCompletions: number; minCompletions: number; claimType: "eachTeam" | "firstTeam" | "unlimited"; instructions: string; image: string }> }
   | { type: "ADMIN_RANDOMIZE_BOARD" }
   | { type: "ADMIN_RANDOMIZE_TILES" }
-  | { type: "ADMIN_SET_FOG_OF_WAR"; mode: "none" | "admin" | "all" }
+  | { type: "ADMIN_SET_FOG_OF_WAR"; mode: "none" | "admin" | "all"; adminName?: string }
+  | { type: "ADMIN_LOG_EVENT"; message: string; adminName?: string }
   | { type: "ADMIN_RANDOMIZE_DIFFICULTIES"; weights?: { easy: number; medium: number; hard: number }; gradient?: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
   | { type: "ADMIN_SAVE_GRADIENT_SETTINGS"; weights: { easy: number; medium: number; hard: number }; gradient: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
   | { type: "SET_TEAM_PASSWORD"; teamId: string; password: string; adminName?: string }
@@ -216,4 +230,5 @@ export type GameEvent =
   | { type: "ADMIN_UPDATE_TEAM"; teamId: string; updates: Partial<Team>; adminName?: string; changes?: string[] }
   | { type: "ADMIN_UPDATE_POWERUP_TILE"; tileId: number; updates: Partial<PowerupTile>; teamClaims?: Array<{ teamId: string; claimed: boolean }> }
   | { type: "ADMIN_UPDATE_POOL_TASK"; taskId: string; updates: Partial<PoolTask> }
-  | { type: "ADMIN_TOGGLE_COOLDOWN"; teamId: string; adminName?: string };
+  | { type: "ADMIN_TOGGLE_COOLDOWN"; teamId: string; cooldownValue: number; adminName?: string }
+  | { type: "SACRIFICE_FOR_TIMEBOMB"; teamId: string; sacrificedPowerups: string[]; adminName?: string };

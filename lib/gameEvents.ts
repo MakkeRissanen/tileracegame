@@ -5,6 +5,7 @@ import {
   Team,
   RaceTile,
   PoolTask,
+  LogEntry,
 } from "@/types/game";
 import {
   initialGame,
@@ -87,7 +88,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           members: [],
           captain: "",
           playerPoints: {},
-          powerupCooldown: false,
+          powerupCooldown: 0,
           password: null,
         };
 
@@ -140,7 +141,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             members: [],
             captain: "",
             playerPoints: {},
-            powerupCooldown: false,
+            powerupCooldown: 0,
             password: null,
           };
           nextTeams = [...nextTeams, team];
@@ -201,6 +202,23 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             : 3;
 
         const nextPos = simulateAdvance(team, 1);
+        
+        // Check if nextPos has a time bomb
+        const timeBombTiles = { ...(game.timeBombTiles || {}) };
+        const bombPlacer = timeBombTiles[nextPos];
+        let bombTriggered = false;
+        let bombPushedPos = nextPos;
+        
+        if (bombPlacer && bombPlacer !== event.teamId) {
+          // Time bomb triggered! Push team back 2 tiles
+          bombTriggered = true;
+          bombPushedPos = Math.max(1, nextPos - 2);
+          // Remove the bomb after it's triggered
+          delete timeBombTiles[nextPos];
+        }
+        
+        const finalPos = bombTriggered ? bombPushedPos : nextPos;
+        
         const teams = game.teams.map((t) => {
           if (t.id === event.teamId) {
             // Update team's player points for this completion
@@ -208,17 +226,29 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             playerNames.forEach((playerName) => {
               updatedPlayerPoints[playerName] = (updatedPlayerPoints[playerName] || 0) + pointsForDiff;
             });
-            return { ...t, pos: nextPos, powerupCooldown: false, playerPoints: updatedPlayerPoints };
+            // Decrement cooldown, minimum 0
+            const newCooldown = Math.max(0, (t.powerupCooldown || 0) - 1);
+            
+            // If bomb triggered, clear claimedRaceTileRewards for tiles between bombPushedPos and nextPos (exclusive)
+            // This allows the team to re-earn rewards and points when re-completing these tiles
+            let clearedRewards = t.claimedRaceTileRewards || [];
+            if (bombTriggered) {
+              clearedRewards = clearedRewards.filter(
+                (tileNum) => tileNum < bombPushedPos || tileNum >= nextPos
+              );
+            }
+            
+            return { ...t, pos: finalPos, powerupCooldown: newCooldown, playerPoints: updatedPlayerPoints, claimedRaceTileRewards: clearedRewards };
           }
           return t;
         });
-        let next = { ...game, teams };
+        let next = { ...game, teams, timeBombTiles };
 
         // Update revealed tiles based on dynamic vision
         const revealedTiles = new Set(game.revealedTiles || []);
         
-        // Always reveal first 4 tiles
-        for (let i = 1; i <= 4; i++) {
+        // Always reveal first 8 tiles
+        for (let i = 1; i <= 8; i++) {
           revealedTiles.add(i);
         }
 
@@ -279,14 +309,15 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
                 rewardRes.granted ? `\n⚡ Reward gained: ${powerupLabel(rewardRes.granted)}` : ""
               }`;
           next = addLog(next, message);
-        } else if (nextPos === completedTile) {
+        } else if (finalPos === completedTile) {
           const message = event.adminName
-            ? `[${event.adminName}]\n${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`
-            : `${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`;
+            ? `[${event.adminName}]\n${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, finalPos)}`
+            : `${team.name} completed ${tileDesc(next, completedTile)} (already at finish)\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, finalPos)}`;
           next = addLog(next, message);
         } else {
           const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
-          const baseMessage = `${adminPrefix}${team.name} completed ${doubledText}Tile ${completedTile}:\n"${completedLabel}"\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, nextPos)}`;
+          const bombText = bombTriggered ? `\n💣 Time bomb triggered! Pushed back from Tile ${nextPos} to Tile ${bombPushedPos}` : '';
+          const baseMessage = `${adminPrefix}${team.name} completed ${doubledText}Tile ${completedTile}:\n"${completedLabel}"\n${playerCompletionsList}\n📍 Current: ${tileDesc(next, finalPos)}${bombText}`;
           const rewardMessage = rewardRes.granted ? `⚡ ${team.name} gained ${powerupLabel(rewardRes.granted)}` : "";
           
           next = addLog(
@@ -294,6 +325,12 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             rewardMessage ? `${baseMessage}\n${rewardMessage}` : baseMessage
           );
         }
+        
+        // Store bomb trigger info for Discord notification
+        if (bombTriggered) {
+          next = { ...next, lastBombTrigger: { bombPlacer, victim: event.teamId, tile: nextPos, pushedTo: bombPushedPos, timestamp: Date.now() } };
+        }
+        
         return next;
       }
 
@@ -313,7 +350,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             ...t,
             pos: dest,
             copyChoice: (t.copyChoice || []).filter((x) => x.tile !== here),
-            powerupCooldown: false,
+            powerupCooldown: 0,
           };
         });
 
@@ -367,6 +404,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         }
 
         const pointsPerCompletion = tile.pointsPerCompletion || 1;
+        const isTimeBombClaim = tile.rewardPowerupId === 'timeBomb';
         
         const teams = game.teams.map((t) => {
           if (t.id !== team.id) return t;
@@ -378,9 +416,25 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             updatedPlayerPoints[playerName] = (updatedPlayerPoints[playerName] || 0) + pointsPerCompletion;
           });
           
+          const newInventory = [...(t.inventory || []), tile.rewardPowerupId];
+          
+          // Only modify insuredPowerups if claiming a time bomb
+          if (isTimeBombClaim) {
+            const insuredPowerups = [...(t.insuredPowerups || [])];
+            insuredPowerups.push(newInventory.length - 1);
+            
+            return {
+              ...t,
+              inventory: newInventory,
+              claimedPowerupTiles: [...(t.claimedPowerupTiles || []), tileId],
+              playerPoints: updatedPlayerPoints,
+              insuredPowerups,
+            };
+          }
+          
           return {
             ...t,
-            inventory: [...(t.inventory || []), tile.rewardPowerupId],
+            inventory: newInventory,
             claimedPowerupTiles: [...(t.claimedPowerupTiles || []), tileId],
             playerPoints: updatedPlayerPoints,
           };
@@ -390,6 +444,21 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         const powerupName = powerupLabel(tile.rewardPowerupId);
         const playerCompletionsList = playerNames.map(p => `⭐ ${p} - ${pointsPerCompletion} pt${pointsPerCompletion !== 1 ? 's' : ''}`).join('\n');
         const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
+        
+        // Mark as secret if claiming a time bomb
+        if (isTimeBombClaim) {
+          const logEntry: LogEntry = {
+            id: `${Date.now()}-${Math.random()}`,
+            ts: Date.now(),
+            message: `${adminPrefix}${team.name} gained ${powerupName}\nCompleted "${tile.label}"\n${playerCompletionsList}`,
+            isTimeBombSecret: true,
+          };
+          return {
+            ...next,
+            log: [logEntry, ...(next.log || [])].slice(0, 50),
+          };
+        }
+        
         next = addLog(
           next,
           `${adminPrefix}${team.name} gained ${powerupName}\nCompleted "${tile.label}"\n${playerCompletionsList}`
@@ -749,6 +818,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       case "ADMIN_SET_FOG_OF_WAR": {
         const oldMode = game.fogOfWarDisabled || "none";
         const mode = event.mode || "none";
+        const adminName = event.adminName || "Admin";
         
         // If disabling fog of war, reveal all tiles
         if (mode !== "none") {
@@ -759,14 +829,14 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           
           let next: GameState = { ...game, fogOfWarDisabled: mode, revealedTiles };
           const modeText = mode === "admin" ? "for admin only" : "for everyone";
-          next = addLog(next, `Admin changed fog of war: ${oldMode} → ${mode} (disabled ${modeText}) - all tiles revealed`);
+          next = addLog(next, `👁️ ${adminName} ${mode === "admin" ? "disabled fog of war for admin" : "disabled fog of war for everyone"} - all tiles revealed`);
           return next;
         } else {
           // Re-enable fog of war - reset revealed tiles to current team progress
           const revealedTiles = new Set<number>();
           
-          // Always reveal first 4 tiles
-          for (let i = 1; i <= 4; i++) {
+          // Always reveal first 8 tiles
+          for (let i = 1; i <= 8; i++) {
             revealedTiles.add(i);
           }
           
@@ -803,9 +873,14 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           }
           
           let next: GameState = { ...game, fogOfWarDisabled: mode, revealedTiles: Array.from(revealedTiles) };
-          next = addLog(next, `Admin changed fog of war: ${oldMode} → ${mode} (re-enabled, ${revealedTiles.size} tiles revealed)`);
+          next = addLog(next, `👁️ ${adminName} re-enabled fog of war (${revealedTiles.size} tiles revealed)`);
           return next;
         }
+      }
+
+      case "ADMIN_LOG_EVENT": {
+        const message = event.message || "Admin action";
+        return addLog(game, message);
       }
 
       case "ADMIN_RANDOMIZE_TILES": {
@@ -824,15 +899,28 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           3: pool3.filter((t) => !usedPoolTaskIds.has(t.id)).length,
         };
         
-        const warnings: string[] = [];
-        if (unusedInPool[1] <= 3) {
-          warnings.push(`Easy pool has only ${unusedInPool[1]} unused tasks`);
+        // Count how many tiles need each difficulty
+        const tilesNeeded = {
+          1: game.raceTiles.filter(t => t.difficulty === 1).length,
+          2: game.raceTiles.filter(t => t.difficulty === 2).length,
+          3: game.raceTiles.filter(t => t.difficulty === 3).length,
+        };
+        
+        // VALIDATE: Check if we have enough tasks BEFORE starting randomization
+        const errors: string[] = [];
+        if (unusedInPool[1] < tilesNeeded[1]) {
+          errors.push(`Not enough easy tasks: need ${tilesNeeded[1]}, have ${unusedInPool[1]}`);
         }
-        if (unusedInPool[2] <= 3) {
-          warnings.push(`Medium pool has only ${unusedInPool[2]} unused tasks`);
+        if (unusedInPool[2] < tilesNeeded[2]) {
+          errors.push(`Not enough medium tasks: need ${tilesNeeded[2]}, have ${unusedInPool[2]}`);
         }
-        if (unusedInPool[3] <= 3) {
-          warnings.push(`Hard pool has only ${unusedInPool[3]} unused tasks`);
+        if (unusedInPool[3] < tilesNeeded[3]) {
+          errors.push(`Not enough hard tasks: need ${tilesNeeded[3]}, have ${unusedInPool[3]}`);
+        }
+        
+        // ABORT if validation failed
+        if (errors.length > 0) {
+          return addLog(game, `❌ Randomization aborted: ${errors.join(", ")}. Import more tasks or reset pools first.`);
         }
         
         const unfilledTiles: number[] = [];
@@ -873,9 +961,9 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           };
         });
         
-        // Add error for unfilled tiles
+        // This should never happen now due to upfront validation, but keep as safety check
         if (unfilledTiles.length > 0) {
-          warnings.push(`Could not fill ${unfilledTiles.length} tile(s): ${unfilledTiles.join(", ")}`);
+          return addLog(game, `❌ ERROR: Failed to fill ${unfilledTiles.length} tile(s): ${unfilledTiles.join(", ")}. This shouldn't happen - please report this bug.`);
         }
         
         let next = { 
@@ -885,22 +973,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           usedPoolTaskIds: Array.from(usedPoolTaskIds)
         };
         
-        // Only remove fog of war if there are warnings (errors filling tiles)
-        if (warnings.length > 0) {
-          const revealedTiles: number[] = [];
-          for (let i = 1; i <= MAX_TILE; i++) {
-            revealedTiles.push(i);
-          }
-          next = { ...next, revealedTiles };
-          
-          next = addLog(
-            next, 
-            `Admin randomized tiles from pools (assigned ${raceTiles.length - unfilledTiles.length} tasks) - WARNING: ${warnings.join(", ")} - Fog of war removed to alert admin`
-          );
-        } else {
-          next = addLog(next, `Admin randomized tiles from pools (assigned ${raceTiles.length} tasks)`);
-        }
-        
+        next = addLog(next, `✅ Admin randomized tiles from pools (assigned ${raceTiles.length} tasks)`);
         return next;
       }
 
@@ -913,8 +986,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           // Reveal tiles based on team positions with dynamic vision
           const revealedTiles = new Set<number>();
           
-          // Always reveal first 4 tiles
-          for (let i = 1; i <= 4; i++) {
+          // Always reveal first 8 tiles
+          for (let i = 1; i <= 8; i++) {
             revealedTiles.add(i);
           }
           
@@ -958,7 +1031,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           weights: { easy: 50, medium: 35, hard: 15 }, // Not used, for backward compatibility
           gradient: true,
           early: event.early || { easy: 65, medium: 30, hard: 5 },
-          late: event.late || { easy: 5, medium: 35, hard: 60 },
+          late: event.late || { easy: 5, medium: 40, hard: 55 },
         };
         
         // IMPORTANT: Clear all "used" flags from task pools before randomization
@@ -974,7 +1047,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         }
         
         // Check task pool availability first
-        const MIN_REMAINING = 3;
+        const MIN_REMAINING = 3; // Buffer of tasks to keep unused
         const MIN_HARD_TILES = 17; // Minimum hard tiles required on board
         const pool1 = taskPools["1"] || [];
         const pool2 = taskPools["2"] || [];
@@ -986,61 +1059,80 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           2: pool2.length,
           3: pool3.length,
         };
-
-        // Assign difficulties with constraints
-        const earlyThreshold = Math.floor(MAX_TILE * 0.3); // First ~30% of tiles (tiles 1-17 out of 56)
-        const lateThreshold = Math.floor(MAX_TILE * 0.7);  // Last ~30% of tiles (tiles 40-56 out of 56)
         
-        // Helper function to get normalized weights based on position
-        // Early game: first 30% use early weights
-        // Middle game: 30%-70% blend between early and late weights
-        // Late game: last 30% use late weights
-        const getNormalizedWeights = (index: number) => {
-          let weights;
+        // VALIDATE: Ensure we have enough tasks to randomize all 56 tiles
+        // Basic check: do we have enough total tasks?
+        const errors: string[] = [];
+        const totalTiles = MAX_TILE;
+        
+        if (available[1] + available[2] + available[3] < totalTiles) {
+          errors.push(`Not enough total tasks: need ${totalTiles}, have ${available[1] + available[2] + available[3]}`);
+        }
+        
+        // Check we have minimum hard tasks for the constraint (17 hard tiles minimum)
+        if (available[3] < MIN_HARD_TILES) {
+          errors.push(`Not enough hard tasks: need at least ${MIN_HARD_TILES}, have ${available[3]}`);
+        }
+        
+        // ABORT if validation failed - mathematically impossible to succeed
+        if (errors.length > 0) {
+          return addLog(workingState, `❌ Randomization impossible: ${errors.join(", ")}. Import more tasks first.`);
+        }
+        
+        // RETRY LOOP: Try multiple times to find a valid randomization pattern
+        const MAX_ATTEMPTS = 50;
+        let successfulRaceTiles: RaceTile[] | null = null;
+        let finalCounts: { 1: number; 2: number; 3: number } | null = null;
+        
+        for (let attemptNum = 1; attemptNum <= MAX_ATTEMPTS; attemptNum++) {
+          // Try to generate a valid difficulty assignment
+          const result = tryRandomizePattern();
           
-          if (index < earlyThreshold) {
-            // Early game: use early weights
-            weights = gradientSettings.early;
-          } else if (index >= lateThreshold) {
-            // Late game: use late weights
-            weights = gradientSettings.late;
-          } else {
-            // Middle game: blend early and late weights based on position
-            const middleProgress = (index - earlyThreshold) / (lateThreshold - earlyThreshold);
-            weights = {
-              easy: Math.round(gradientSettings.early.easy * (1 - middleProgress) + gradientSettings.late.easy * middleProgress),
-              medium: Math.round(gradientSettings.early.medium * (1 - middleProgress) + gradientSettings.late.medium * middleProgress),
-              hard: Math.round(gradientSettings.early.hard * (1 - middleProgress) + gradientSettings.late.hard * middleProgress),
-            };
+          if (result.success) {
+            successfulRaceTiles = result.raceTiles || null;
+            finalCounts = result.counts || null;
+            break;
           }
           
-          const totalWeight = weights.easy + weights.medium + weights.hard;
-          return {
-            easy: weights.easy / totalWeight,
-            medium: weights.medium / totalWeight,
-            hard: weights.hard / totalWeight,
+          // Failed this attempt, will retry with different random seed
+        }
+        
+        // If all attempts failed, return error
+        if (!successfulRaceTiles || !finalCounts) {
+          return addLog(workingState, `❌ ERROR: Cannot randomize difficulties - Hard pool needs ${MIN_REMAINING} more tasks. Tiles cleared, pools reset. Fix issues and try again.`);
+        }
+        
+        // Function to attempt one randomization pattern
+        function tryRandomizePattern(): { success: boolean; raceTiles?: RaceTile[]; counts?: { 1: number; 2: number; 3: number } } {
+          const counts = { 1: 0, 2: 0, 3: 0 };
+          const raceTiles: RaceTile[] = new Array(workingState.raceTiles.length);
+          
+          const earlyThreshold = Math.floor(MAX_TILE * 0.3);
+          const lateThreshold = Math.floor(MAX_TILE * 0.7);
+          
+          const getNormalizedWeights = (index: number) => {
+            let weights;
+            if (index < earlyThreshold) {
+              weights = gradientSettings.early;
+            } else if (index >= lateThreshold) {
+              weights = gradientSettings.late;
+            } else {
+              const middleProgress = (index - earlyThreshold) / (lateThreshold - earlyThreshold);
+              weights = {
+                easy: Math.round(gradientSettings.early.easy * (1 - middleProgress) + gradientSettings.late.easy * middleProgress),
+                medium: Math.round(gradientSettings.early.medium * (1 - middleProgress) + gradientSettings.late.medium * middleProgress),
+                hard: Math.round(gradientSettings.early.hard * (1 - middleProgress) + gradientSettings.late.hard * middleProgress),
+              };
+            }
+            const totalWeight = weights.easy + weights.medium + weights.hard;
+            return {
+              easy: weights.easy / totalWeight,
+              medium: weights.medium / totalWeight,
+              hard: weights.hard / totalWeight,
+            };
           };
-        };
-
-        // Count tiles that must be each difficulty
-        const counts = { 1: 0, 2: 0, 3: 0 };
-        
-        // First pass: assign fixed tiles and count them
-        // Tile 1-2: easy, Tile 3-4: medium, Tile 5: hard, Final tile: hard
-        const fixedHardTiles = 2; // Tile 5 and tile 56
-        const minRandomHardTiles = MIN_HARD_TILES - fixedHardTiles; // Need at least 16 more hard tiles
-        
-        // Initialize raceTiles array with proper size
-        const raceTiles: RaceTile[] = new Array(workingState.raceTiles.length);
-        
-        // Define sections for gradient distribution
-        const earlyEnd = Math.floor(MAX_TILE * 0.33);
-        const lateStart = Math.floor(MAX_TILE * 0.67);
-        
-        // CRITICAL: Process tiles in SEQUENTIAL order (0 to MAX_TILE)
-        // This is required for consecutive tile checking to work properly
-        // The gradient weights are position-based, so we still get early/middle/late distribution
-        const randomizationOrder: number[] = [];
+          
+          const randomizationOrder: number[] = [];
         for (let i = 0; i < workingState.raceTiles.length; i++) {
           randomizationOrder.push(i);
         }
@@ -1119,30 +1211,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             if (counts[candidateDiff] >= available[candidateDiff] - MIN_REMAINING) {
               if (forceHard) {
                 // Critical error: need to force hard tile but pool is exhausted
-                const clearedTiles = workingState.raceTiles.map(tile => ({
-                  ...tile,
-                  difficulty: 1 as 1 | 2 | 3,
-                  label: "",
-                  instructions: "",
-                  image: "",
-                  maxCompletions: 1,
-                  minCompletions: 1
-                }));
-                
-                const clearedPools = { ...workingState.taskPools };
-                if (clearedPools["1"]) clearedPools["1"] = clearedPools["1"].map(t => ({ ...t, used: false }));
-                if (clearedPools["2"]) clearedPools["2"] = clearedPools["2"].map(t => ({ ...t, used: false }));
-                if (clearedPools["3"]) clearedPools["3"] = clearedPools["3"].map(t => ({ ...t, used: false }));
-                
-                let errorState: GameState = { 
-                  ...workingState, 
-                  raceTiles: clearedTiles,
-                  taskPools: clearedPools,
-                  fogOfWarDisabled: "all",
-                  usedPoolTaskIds: []
-                };
-                errorState = addLog(errorState, `⚠️ ERROR: Not enough hard tasks to maintain max ${maxHardGap}-tile gaps. Tiles cleared, pools reset.`);
-                return errorState;
+                // Return failure so retry loop can try again
+                return { success: false };
               }
               
               // Fallback: assign to pool with most available space, but respect streak limits
@@ -1168,30 +1238,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
                 difficulty = validOptions[0].diff;
               } else {
                 // Critical error: no valid options available
-                const clearedTiles = workingState.raceTiles.map(tile => ({
-                  ...tile,
-                  difficulty: 1 as 1 | 2 | 3,
-                  label: "",
-                  instructions: "",
-                  image: "",
-                  maxCompletions: 1,
-                  minCompletions: 1
-                }));
-                
-                const clearedPools = { ...workingState.taskPools };
-                if (clearedPools["1"]) clearedPools["1"] = clearedPools["1"].map(t => ({ ...t, used: false }));
-                if (clearedPools["2"]) clearedPools["2"] = clearedPools["2"].map(t => ({ ...t, used: false }));
-                if (clearedPools["3"]) clearedPools["3"] = clearedPools["3"].map(t => ({ ...t, used: false }));
-                
-                let errorState: GameState = { 
-                  ...workingState, 
-                  raceTiles: clearedTiles,
-                  taskPools: clearedPools,
-                  fogOfWarDisabled: "all",
-                  usedPoolTaskIds: []
-                };
-                errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize - task pools exhausted. Tiles cleared, pools reset.`);
-                return errorState;
+                return { success: false };
               }
             } else {
               difficulty = candidateDiff;
@@ -1359,50 +1406,70 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           warnings.push(`RULE VIOLATION: ${hardGapViolations.length} hard gap violations`);
         }
 
-        // If there are warnings, stop and show error
+        // If there are warnings, this attempt failed
         if (warnings.length > 0) {
-          console.error(`⚠️ RANDOMIZATION FAILED - clearing tiles and resetting pools`);
-          console.error(`Warnings:`, warnings);
-          
-          // Clear tile task assignments AND difficulties
-          const clearedTiles = workingState.raceTiles.map(tile => ({
-            ...tile,
-            difficulty: 1 as 1 | 2 | 3,
-            label: "",
-            instructions: "",
-            image: "",
-            maxCompletions: 1,
-            minCompletions: 1
-          }));
-          
-          // Reset all pool "used" flags
-          const clearedPools = { ...workingState.taskPools };
-          if (clearedPools["1"]) {
-            clearedPools["1"] = clearedPools["1"].map(t => ({ ...t, used: false }));
-          }
-          if (clearedPools["2"]) {
-            clearedPools["2"] = clearedPools["2"].map(t => ({ ...t, used: false }));
-          }
-          if (clearedPools["3"]) {
-            clearedPools["3"] = clearedPools["3"].map(t => ({ ...t, used: false }));
-          }
-          
-          let errorState: GameState = { 
-            ...workingState, 
-            raceTiles: clearedTiles,
-            taskPools: clearedPools,
-            fogOfWarDisabled: "all",
-            usedPoolTaskIds: []
-          };
-          
-          const revealedTiles: number[] = [];
-          for (let i = 1; i <= MAX_TILE; i++) {
-            revealedTiles.push(i);
-          }
-          errorState.revealedTiles = revealedTiles;
-          errorState = addLog(errorState, `⚠️ ERROR: Cannot randomize difficulties - ${warnings.join(", ")} - Tiles cleared, pools reset. Fix issues and try again.`);
-          return errorState;
+          return { success: false };
         }
+        
+        // Success! Return the valid assignment
+        return { success: true, raceTiles, counts };
+      } // End of tryRandomizePattern function
+      
+      // FINAL DOUBLE-CHECK: Validate the successful assignment before applying
+      const raceTiles = successfulRaceTiles;
+      const counts = finalCounts;
+      
+      // 1. Check all tiles are assigned
+      const unassignedTiles = raceTiles.filter(t => !t.difficulty || t.difficulty < 1 || t.difficulty > 3);
+      if (unassignedTiles.length > 0) {
+        return addLog(workingState, `❌ CRITICAL ERROR: ${unassignedTiles.length} tiles not assigned difficulty. Please report this bug.`);
+      }
+      
+      // 2. Verify minimum hard tiles requirement
+      const hardCount = raceTiles.filter(t => t.difficulty === 3).length;
+      if (hardCount < MIN_HARD_TILES) {
+        return addLog(workingState, `❌ CRITICAL ERROR: Only ${hardCount} hard tiles (need ${MIN_HARD_TILES}). Please report this bug.`);
+      }
+      
+      // 3. Check consecutive violations
+      let maxConsecutiveFound = 0;
+      for (let i = 0; i < raceTiles.length; i++) {
+        let consecutive = 1;
+        for (let j = i - 1; j >= 0 && raceTiles[j]?.difficulty === raceTiles[i].difficulty; j--) {
+          consecutive++;
+        }
+        if (consecutive > maxConsecutiveFound) maxConsecutiveFound = consecutive;
+      }
+      if (maxConsecutiveFound > 3) {
+        return addLog(workingState, `❌ CRITICAL ERROR: ${maxConsecutiveFound} consecutive tiles found (max 3). Please report this bug.`);
+      }
+      
+      // 4. Check hard gap violations
+      let maxHardGapFound = 0;
+      for (let i = 0; i < raceTiles.length; i++) {
+        if (raceTiles[i].difficulty !== 3) {
+          let gapSinceHard = 0;
+          for (let j = i - 1; j >= 0; j--) {
+            if (raceTiles[j]?.difficulty === 3) break;
+            gapSinceHard++;
+          }
+          if (gapSinceHard > maxHardGapFound) maxHardGapFound = gapSinceHard;
+        }
+      }
+      if (maxHardGapFound > 7) {
+        return addLog(workingState, `❌ CRITICAL ERROR: ${maxHardGapFound} tiles between hard tiles (max 7). Please report this bug.`);
+      }
+      
+      // 5. Verify pool availability for task assignment
+      if (counts[1] > available[1] - MIN_REMAINING) {
+        return addLog(workingState, `❌ CRITICAL ERROR: Easy pool exhausted (need ${counts[1] + MIN_REMAINING}, have ${available[1]}). Please report this bug.`);
+      }
+      if (counts[2] > available[2] - MIN_REMAINING) {
+        return addLog(workingState, `❌ CRITICAL ERROR: Medium pool exhausted (need ${counts[2] + MIN_REMAINING}, have ${available[2]}). Please report this bug.`);
+      }
+      if (counts[3] > available[3] - MIN_REMAINING) {
+        return addLog(workingState, `❌ CRITICAL ERROR: Hard pool exhausted (need ${counts[3] + MIN_REMAINING}, have ${available[3]}). Please report this bug.`);
+      }
 
         let next: GameState = { ...workingState, raceTiles, gradientSettings };
         next.usedPoolTaskIds = [];
@@ -1454,9 +1521,15 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           };
         });
         
-        // Add error for unfilled tiles
+        // FINAL VALIDATION: Ensure all tiles have been assigned tasks
         if (unfilledTiles.length > 0) {
           tileWarnings.push(`Could not fill ${unfilledTiles.length} tile(s): ${unfilledTiles.join(", ")}`);
+        }
+        
+        // Double-check every tile has a label (task assigned)
+        const emptyTiles = finalRaceTiles.filter(t => !t.label || t.label.trim() === "").map(t => t.n);
+        if (emptyTiles.length > 0) {
+          tileWarnings.push(`${emptyTiles.length} tiles have no label: ${emptyTiles.join(", ")}`);
         }
         
         next = { 
@@ -1564,16 +1637,75 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         if (!team) return game;
         
         const oldState = team.powerupCooldown;
-        const newState = !oldState;
+        const newState = event.cooldownValue;
         const teams = game.teams.map((t) => 
           t.id === event.teamId ? { ...t, powerupCooldown: newState } : t
         );
         
         return addLog(
           { ...game, teams },
-          `Admin changed powerup cooldown for ${team.name}: ${oldState ? "ON" : "OFF"} → ${newState ? "ON" : "OFF"}`,
+          `Admin changed powerup cooldown for ${team.name}: ${oldState} tile(s) → ${newState} tile(s)`,
           event.adminName || null
         );
+      }
+
+      case "SACRIFICE_FOR_TIMEBOMB": {
+        const team = game.teams.find((t) => t.id === event.teamId);
+        if (!team) return game;
+        
+        const sacrificedPowerups = event.sacrificedPowerups || [];
+        if (sacrificedPowerups.length !== 3) {
+          return addLog(game, `${team.name} tried to sacrifice for timeBomb but didn't provide exactly 3 powerups`);
+        }
+        
+        // Verify team has these powerups
+        const inventory = [...team.inventory];
+        for (const powerupId of sacrificedPowerups) {
+          const index = inventory.indexOf(powerupId);
+          if (index === -1) {
+            return addLog(game, `${team.name} tried to sacrifice ${powerupLabel(powerupId)} but doesn't have it`);
+          }
+          inventory.splice(index, 1); // Remove from temp inventory
+        }
+        
+        // Add timeBomb to inventory
+        inventory.push('timeBomb');
+        
+        // Update team with new inventory and adjust insured indices
+        const teams = game.teams.map((t) => {
+          if (t.id !== event.teamId) return t;
+          
+          // Adjust insured indices after removing 3 powerups
+          let insuredPowerups = [...(t.insuredPowerups || [])];
+          for (const powerupId of sacrificedPowerups) {
+            const removedIndex = t.inventory.indexOf(powerupId);
+            if (removedIndex !== -1) {
+              // Remove insurance for this index
+              insuredPowerups = insuredPowerups.filter(idx => idx !== removedIndex);
+              // Adjust all indices after the removed one
+              insuredPowerups = insuredPowerups.map(idx => idx > removedIndex ? idx - 1 : idx);
+            }
+          }
+          
+          // Automatically insure the time bomb (it's now at the last index)
+          insuredPowerups.push(inventory.length - 1);
+          
+          return { ...t, inventory, insuredPowerups };
+        });
+        
+        const sacrificeList = sacrificedPowerups.map(p => powerupLabel(p)).join(', ');
+        const adminPrefix = event.adminName ? `[${event.adminName}]\n` : '';
+        const logEntry: LogEntry = {
+          id: `${Date.now()}-${Math.random()}`,
+          ts: Date.now(),
+          message: `${adminPrefix}${team.name} sacrificed 3 powerups (${sacrificeList}) 💣 → gained ${powerupLabel('timeBomb')}`,
+          isTimeBombSecret: true,
+        };
+        return {
+          ...game,
+          teams,
+          log: [logEntry, ...(game.log || [])].slice(0, 50),
+        };
       }
 
       case "ADMIN_UNDO": {

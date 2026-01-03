@@ -17,6 +17,8 @@ interface AdminOptionsDropdownProps {
   onSetTeamPasswords: () => void;
   onUndo: () => void;
   onResetAll: () => void;
+  adminBombVisibility: boolean;
+  onToggleBombVisibility: () => void;
 }
 
 export default function AdminOptionsDropdown({
@@ -34,6 +36,8 @@ export default function AdminOptionsDropdown({
   onSetTeamPasswords,
   onUndo,
   onResetAll,
+  adminBombVisibility,
+  onToggleBombVisibility,
 }: AdminOptionsDropdownProps) {
   const [showDangerZone, setShowDangerZone] = useState(false);
 
@@ -42,6 +46,8 @@ export default function AdminOptionsDropdown({
     : fogOfWarMode === "admin"
     ? "👁️ Fog of War (Admin Only)"
     : "👁️ Fog of War (Disabled)";
+
+  const bombVisibilityLabel = adminBombVisibility ? "💣 Hide Time Bombs" : "👁️ Show Time Bombs";
     
   const allMenuItems = [
     { label: "👥 Form teams", onClick: () => { onClose(); onFormTeams(); }, masterOnly: true },
@@ -49,6 +55,7 @@ export default function AdminOptionsDropdown({
     { label: "📦 Import powerups", onClick: () => { onClose(); onImportPowerups(); }, masterOnly: true },
     { label: "⚙️ Gradient settings", onClick: () => { onClose(); onGradientSettings(); }, masterOnly: true },
     { label: fogOfWarLabel, onClick: () => { onClose(); onDisableFogOfWar(); }, masterOnly: true },
+    { label: bombVisibilityLabel, onClick: () => { onToggleBombVisibility(); }, masterOnly: false },
     { label: "💾 Download Game Backup", onClick: () => { onClose(); alert("Download backup - Coming soon!"); }, masterOnly: true },
     { label: "📂 Restore Game Backup", onClick: () => { onClose(); alert("Restore backup - Coming soon!"); }, masterOnly: true },
     { label: "👤 Manage Admins", onClick: () => { onClose(); onManageAdmins(); }, masterOnly: true },

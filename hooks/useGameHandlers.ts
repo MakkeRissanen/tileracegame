@@ -144,11 +144,12 @@ export function useGameHandlers({
       await dispatch({
         type: "ADMIN_SET_FOG_OF_WAR",
         mode,
+        adminName,
       });
     } catch (err) {
       alert(`Failed to set fog of war: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-  }, [dispatch]);
+  }, [dispatch, adminName]);
 
   const handleImportTasks = useCallback(async (tasks: { difficulty: number; label: string; maxCompletions: number; minCompletions: number; instructions: string; image: string; startProofNeeded?: boolean }[]) => {
     try {

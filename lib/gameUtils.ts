@@ -89,6 +89,7 @@ export function initialGame(): GameState {
     doubledTilesInfo: {},
     revealedTiles: [1, 2, 3, 4, 5, 6, 7, 8],
     playerPoints: {},
+    timeBombTiles: {},
     teams: [],
     admins: [
       { 
@@ -109,7 +110,7 @@ export function addLog(
   adminName: string | null = null
 ): GameState {
   const finalMessage = adminName ? `[${adminName}]\n${message}` : message;
-  const entry: LogEntry = { id: uid(), ts: Date.now(), message: finalMessage };
+  const entry: LogEntry = { id: uid(), ts: Date.now(), message: finalMessage, isTimeBombSecret: false };
   const log = [entry, ...(game.log || [])].slice(0, 50);
   return { ...game, log };
 }

@@ -210,8 +210,8 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
           }
 
           // Check cooldown
-          if (team.powerupCooldown && event.powerupId !== "clearCooldown") {
-            return { valid: false, reason: "Powerup cooldown is active. Use 'Clear Cooldown' powerup or wait for admin to disable it." };
+          if (team.powerupCooldown > 0 && event.powerupId !== "clearCooldown") {
+            return { valid: false, reason: `Powerup cooldown is active (${team.powerupCooldown} tile${team.powerupCooldown !== 1 ? 's' : ''} remaining). Complete more tiles or use 'Clear Cooldown' powerup.` };
           }
 
           // Validate changeTile hasn't already been used on this tile

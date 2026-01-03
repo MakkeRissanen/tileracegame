@@ -146,6 +146,20 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
           } else {
             fields.push({ name: "New Position", value: `Tile ${team.pos}`, inline: false });
           }
+          
+          // Check for bomb trigger
+          if (gameState.lastBombTrigger && Date.now() - gameState.lastBombTrigger.timestamp < 5000) {
+            const bombData = gameState.lastBombTrigger;
+            if (bombData.victim === event.teamId) {
+              const bomberTeam = gameState.teams.find(t => t.id === bombData.bombPlacer);
+              const bomberName = bomberTeam ? bomberTeam.name : "Unknown";
+              fields.push({ 
+                name: "💣 TIME BOMB TRIGGERED!", 
+                value: `${bomberName}'s bomb exploded at Tile ${bombData.tile}!\n${teamName} was pushed back to Tile ${bombData.pushedTo}!`, 
+                inline: false 
+              });
+            }
+          }
         }
       }
       break;
@@ -276,6 +290,13 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
                 });
               }
             }
+          } else if (event.powerupId === 'randomizeRandomTile') {
+            // randomizeRandomTile - tile info will be in the log message
+            fields.push({ 
+              name: "Effect", 
+              value: "Randomly changed a tile on the board", 
+              inline: false 
+            });
           } else if (event.powerupId.startsWith('double')) {
             // For double tile powerups
             const difficultyName = targetTile.difficulty === 1 ? 'Easy' : targetTile.difficulty === 2 ? 'Medium' : 'Hard';
@@ -316,6 +337,25 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
         });
       }
       
+      // For Steal Powerup, show which powerup was stolen
+      if (event.powerupId === 'stealPowerup' && event.targetPowerupId) {
+        const stolenPowerupName = getPowerupName(event.targetPowerupId);
+        fields.push({ 
+          name: "Stolen Powerup", 
+          value: stolenPowerupName, 
+          inline: false 
+        });
+      }
+      
+      // For Cooldown Lock, show additional cooldown added
+      if (event.powerupId === 'cooldownLock') {
+        fields.push({ 
+          name: "Effect", 
+          value: "Cooldown locked for +2 tiles", 
+          inline: false 
+        });
+      }
+      
       // For Double Powerup, show which powerup was duplicated
       if (event.powerupId === 'doublePowerup' && event.targetPowerupId) {
         const duplicatedPowerupName = getPowerupName(event.targetPowerupId);
@@ -324,6 +364,53 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
           value: duplicatedPowerupName, 
           inline: false 
         });
+      }
+      
+      // For Powerup Insurance, show which powerup was insured
+      if (event.powerupId === 'powerupInsurance' && gameState) {
+        const team = gameState.teams.find(t => t.id === event.teamId);
+        if (team && 'insurePowerupIndex' in event && event.insurePowerupIndex !== undefined) {
+          const insuredPowerup = team.inventory[event.insurePowerupIndex];
+          if (insuredPowerup) {
+            const insuredPowerupName = getPowerupName(insuredPowerup);
+            fields.push({ 
+              name: "Insured Powerup 🛡️", 
+              value: insuredPowerupName, 
+              inline: false 
+            });
+          }
+        }
+      }
+      
+      // For Time Bomb, show which tile was marked
+      if (event.powerupId === 'timeBomb' && gameState) {
+        const team = gameState.teams.find(t => t.id === event.teamId);
+        if (team) {
+          const tile = gameState.raceTiles.find(t => t.n === team.pos);
+          if (tile) {
+            fields.push({ 
+              name: "Bomb Placed 💣", 
+              value: `Tile #${team.pos}: "${tile.label}"\nNext team to land here gets pushed back 2 tiles!`, 
+              inline: false 
+            });
+          }
+        }
+      }
+      
+      // For Mystery Powerup, show the reward (extract from log)
+      if (event.powerupId === 'mysteryPowerup' && gameState) {
+        // The reward is logged in the game state - try to extract it
+        if (gameState.log && gameState.log.length > 0) {
+          const lastLog = gameState.log[gameState.log.length - 1];
+          const rewardMatch = lastLog.message.match(/received (.+?)! 🎁/);
+          if (rewardMatch) {
+            fields.push({ 
+              name: "Mystery Reward 🎁", 
+              value: rewardMatch[1], 
+              inline: false 
+            });
+          }
+        }
       }
       
       // Add current position for movement powerups (skip, back)
@@ -457,6 +544,21 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
       description = `Changed powerup cooldown for **${cooldownTeamName}** → **${cooldownStatus}**`;
       break;
       
+    case "SACRIFICE_FOR_TIMEBOMB":
+      const sacrificeTeamName = getTeamName(event.teamId);
+      const sacrificedPowerups = (event.sacrificedPowerups || [])
+        .map(id => getPowerupName(id))
+        .join(", ");
+      
+      if (event.adminName) {
+        title = `${event.adminName}\n💣 Sacrificed for Time Bomb`;
+      } else {
+        title = "💣 Sacrificed for Time Bomb";
+      }
+      
+      description = `**${sacrificeTeamName}** sacrificed 3 powerups (${sacrificedPowerups}) to obtain a **Time Bomb**`;
+      break;
+      
     default:
       title = `📝 ${event.type}`;
       description = "Game event occurred";
@@ -537,6 +639,24 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
     return;
   }
   
+  // Skip time bomb sacrifice (secret event)
+  if (event.type === 'SACRIFICE_FOR_TIMEBOMB') {
+    return;
+  }
+  
+  // Skip time bomb claims (secret event)
+  if (event.type === 'CLAIM_POWERUP_TILE' && gameState) {
+    const powerupTile = gameState.powerupTiles.find(pt => pt.id === Number(event.powerTileId));
+    if (powerupTile && powerupTile.rewardPowerupId === 'timeBomb') {
+      return;
+    }
+  }
+  
+  // Skip time bomb usage (secret event)
+  if (event.type === 'USE_POWERUP' && 'powerupId' in event && event.powerupId === 'timeBomb') {
+    return;
+  }
+  
   const embed = eventToEmbed(event, gameState);
   
   // Validate admin messages have meaningful information
@@ -583,6 +703,17 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
   if (event.type === 'USE_POWERUP' && 'targetId' in event && event.targetId && gameState) {
     const targetTeam = gameState.teams.find(t => t.id === event.targetId);
     if (targetTeam) affectedTeams.add({ name: targetTeam.name, slot: targetTeam.discordWebhookSlot });
+  }
+  
+  // For timeBomb TRIGGER (when someone steps on it), notify ALL teams
+  if (event.type === 'COMPLETE_TILE' && gameState?.lastBombTrigger) {
+    const bombData = gameState.lastBombTrigger;
+    // Only send if this is recent (within last 5 seconds)
+    if (Date.now() - bombData.timestamp < 5000) {
+      gameState.teams.forEach(team => {
+        affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+      });
+    }
   }
   
   // For "firstTeam" claim type powerups, notify ALL teams EXCEPT the claiming team

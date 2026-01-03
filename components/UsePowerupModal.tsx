@@ -124,12 +124,23 @@ export default function UsePowerupModal({
     }
 
     // Add target powerup if needed
-    if (selectedPowerup === "disablePowerup" || selectedPowerup === "doublePowerup") {
+    if (selectedPowerup === "disablePowerup" || selectedPowerup === "doublePowerup" || selectedPowerup === "stealPowerup") {
       if (!targetPowerupId) {
         alert("Please select a powerup");
         return;
       }
       data.targetPowerupId = targetPowerupId;
+    }
+
+    // Add powerup index to insure
+    if (selectedPowerup === "powerupInsurance") {
+      if (targetPowerupId === "") {
+        alert("Please select a powerup to insure");
+        return;
+      }
+      // Find the index of the selected powerup in inventory
+      const insurePowerupIndex = inventory.indexOf(targetPowerupId);
+      data.insurePowerupIndex = insurePowerupIndex;
     }
 
     // Add tile selection if needed
@@ -356,16 +367,31 @@ export default function UsePowerupModal({
               {(() => {
                 const targetTeam = game.teams?.find((t) => t.id === targetTeamId);
                 const targetInventory = targetTeam?.inventory || [];
-                const uniqueTargetPowerups = Array.from(new Set(targetInventory));
-                return uniqueTargetPowerups.map((pid) => {
-                  const count = targetInventory.filter((p) => p === pid).length;
-                  const def = POWERUP_DEFS.find((p) => p.id === pid);
-                  return (
-                    <option key={pid} value={pid}>
-                      {def?.name || pid} (x{count})
-                    </option>
-                  );
+                const insuredIndices = targetTeam?.insuredPowerups || [];
+                
+                // Build a map of powerup ID to available (non-insured) indices
+                const availablePowerups = new Map<string, number[]>();
+                targetInventory.forEach((pid, index) => {
+                  if (!insuredIndices.includes(index)) {
+                    if (!availablePowerups.has(pid)) {
+                      availablePowerups.set(pid, []);
+                    }
+                    availablePowerups.get(pid)!.push(index);
+                  }
                 });
+                
+                // Only show powerups that have at least one non-insured copy
+                return Array.from(availablePowerups.entries())
+                  .filter(([_, indices]) => indices.length > 0)
+                  .map(([pid, indices]) => {
+                    const count = indices.length;
+                    const def = POWERUP_DEFS.find((p) => p.id === pid);
+                    return (
+                      <option key={pid} value={pid}>
+                        {def?.name || pid} (x{count})
+                      </option>
+                    );
+                  });
               })()}
             </select>
           </div>
@@ -390,6 +416,34 @@ export default function UsePowerupModal({
                   return (
                     <option key={pid} value={pid}>
                       {def?.name || pid} (x{count})
+                    </option>
+                  );
+                })}
+            </select>
+          </div>
+        )}
+
+        {selectedPowerup === "powerupInsurance" && (
+          <div className="relative z-30 mb-2">
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+              Powerup to Insure 🛡️
+            </label>
+            <select
+              value={targetPowerupId}
+              onChange={(e) => setTargetPowerupId(e.target.value)}
+              className={selectClass(isDark)}
+            >
+              <option value="">Choose a powerup...</option>
+              {uniquePowerups
+                .filter((pid) => pid !== selectedPowerup)
+                .map((pid) => {
+                  const count = inventory.filter((p) => p === pid).length;
+                  const def = POWERUP_DEFS.find((p) => p.id === pid);
+                  const insurePowerupIndex = inventory.indexOf(pid);
+                  const isInsured = (team.insuredPowerups || []).includes(insurePowerupIndex);
+                  return (
+                    <option key={pid} value={pid}>
+                      {def?.name || pid} (x{count}){isInsured ? " 🛡️ Already Insured" : ""}
                     </option>
                   );
                 })}

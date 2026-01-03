@@ -141,7 +141,23 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
                   Fog of War
                 </h3>
-                <p>Tiles are revealed progressively as teams advance. You can see a limited number of tiles ahead based on the farthest team's position.</p>
+                <p>Tiles are revealed progressively as teams advance. You can see a limited number of tiles ahead based on the farthest team's position. The first 8 tiles are revealed at game start.</p>
+              </section>
+
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Claiming Powerups
+                </h3>
+                <div className={`p-3 rounded-lg ${isDark ? "bg-yellow-900/30 border-2 border-yellow-600" : "bg-yellow-100 border-2 border-yellow-600"}`}>
+                  <p className="font-semibold mb-2 text-yellow-600 dark:text-yellow-400">🔒 Powerup Claiming is Locked Until Tile 5</p>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>Teams cannot claim powerups from tiles until <strong>at least one team has completed Tile 4</strong> (reached Tile 5)</li>
+                    <li>You can still view the "Claim Powerup" interface to see available powerups</li>
+                    <li>All powerup tiles will show a 🔒 <strong>Unavailable</strong> status until the unlock condition is met</li>
+                    <li>Once unlocked, all teams can claim powerups from any visible tile (even if they haven't personally reached Tile 5)</li>
+                    <li>This prevents early-game powerup stacking and keeps the race fair</li>
+                  </ul>
+                </div>
               </section>
             </div>
           )}
@@ -484,6 +500,215 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                   <ul className="list-disc list-inside space-y-1 text-xs">
                     <li>Duplicate rare/powerful powerups</li>
                     <li>Cannot double "Double Powerup" itself (select from other powerups)</li>
+                  </ul>
+                </div>
+              </section>
+
+              {/* Powerup Insurance */}
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Powerup Insurance 🛡️
+                </h3>
+                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                  <p className="font-semibold mb-1">Type: Self powerup targeting</p>
+                  <p className="text-sm mb-2">Protect one of your powerups from being stolen or disabled by other teams.</p>
+                  <p className="font-semibold text-xs mb-1">Restrictions:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Must select which powerup to insure from your inventory</li>
+                    <li>You must have at least one other powerup to insure</li>
+                    <li>Triggers powerup cooldown</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Protection:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Insured powerups cannot be stolen by "Steal Powerup"</li>
+                    <li>Insured powerups cannot be removed by "Disable Powerup"</li>
+                    <li>Insurance is permanent - protects the powerup until it's used</li>
+                    <li>Insurance badge (🛡️) shown in inventory</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Protect your most valuable powerups first</li>
+                    <li>Essential defensive tool against enemy theft</li>
+                  </ul>
+                </div>
+              </section>
+
+              {/* Time Bomb */}
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Time Bomb 💣
+                </h3>
+                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                  <p className="font-semibold mb-1">Type: Trap placement (current tile)</p>
+                  <p className="text-sm mb-2">Place a hidden bomb on your current tile. The next team to land on this tile gets pushed back 2 tiles.</p>
+                  <p className="font-semibold text-xs mb-1">How It Works:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Can only be placed by <strong>sacrificing 3 powerups</strong> from your inventory</li>
+                    <li><strong>Automatically insured (🛡️)</strong> - cannot be stolen or disabled</li>
+                    <li>Bomb is placed on your current tile when you use it</li>
+                    <li>When triggered, victim is pushed back 2 tiles and bomb is removed</li>
+                    <li><strong>ALL teams are notified in Discord</strong> when bomb is triggered</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Restrictions:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Requires 3 powerups to sacrifice</li>
+                    <li>Cannot place on tile 1 or the final tile</li>
+                    <li>Only one bomb per tile (cannot stack multiple bombs)</li>
+                    <li>Triggers powerup cooldown</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">🔒 Complete Secrecy:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li><strong>NO ONE can see the bomb</strong> - not even admins</li>
+                    <li>The bomb is tied to the <strong>tile number itself</strong>, not the task content</li>
+                    <li>Admins cannot detect bombs by editing tiles</li>
+                    <li>Only the planter sees a private notification when placing</li>
+                    <li>Only the victim and planter know when the bomb triggers</li>
+                    <li>This ensures complete strategic surprise</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Special Mechanics:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li><strong>Protected:</strong> Time bombs cannot be stolen or disabled by enemies</li>
+                    <li>Bomb only affects the next team - you are immune to your own bombs</li>
+                    <li>Bomb persists until triggered (doesn't expire)</li>
+                    <li>If victim would go below tile 1, they stop at tile 1</li>
+                    <li>Bomb visibility: only bomb placer sees the 💣 marker</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Place on high-traffic tiles or tiles near the end</li>
+                    <li>Expensive but powerful area denial tool</li>
+                    <li>Can slow down leading teams significantly</li>
+                  </ul>
+                </div>
+              </section>
+
+              {/* Steal Powerup */}
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Steal Powerup
+                </h3>
+                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                  <p className="font-semibold mb-1">Type: Target team + target powerup</p>
+                  <p className="text-sm mb-2">Choose another team and steal one of their stored powerups, adding it to your inventory.</p>
+                  <p className="font-semibold text-xs mb-1">Restrictions:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li><strong>Can only target teams AHEAD of you</strong> (higher tile position)</li>
+                    <li>Must select a target team</li>
+                    <li>Must select which powerup to steal from their inventory</li>
+                    <li>Target team must have at least one powerup</li>
+                    <li><strong>Cannot steal insured powerups (🛡️)</strong></li>
+                    <li>Triggers powerup cooldown</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Catch-up mechanic - helps teams that are behind</li>
+                    <li>Steal powerful powerups from leading opponents</li>
+                    <li>Target teams without Powerup Insurance</li>
+                    <li>More valuable than Disable Powerup (you gain instead of just removing)</li>
+                  </ul>
+                </div>
+              </section>
+
+              {/* Cooldown Lock */}
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Cooldown Lock 🔒
+                </h3>
+                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                  <p className="font-semibold mb-1">Type: Target team</p>
+                  <p className="text-sm mb-2">Choose another team and extend their powerup cooldown by +2 tiles.</p>
+                  <p className="font-semibold text-xs mb-1">How It Works:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Adds 2 tiles to target's cooldown counter</li>
+                    <li>If target has no cooldown, they now need to complete 2 tiles before using powerups</li>
+                    <li>If target already has cooldown, it increases (e.g., 1 tile → 3 tiles)</li>
+                    <li>Cooldown decreases by 1 per tile completion</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Restrictions:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Must select a target team</li>
+                    <li>Cannot target yourself</li>
+                    <li>Triggers powerup cooldown</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Lock down teams that just used a powerup (stack cooldowns)</li>
+                    <li>Prevent opponents from using defensive powerups</li>
+                    <li>Essential for controlling leading teams</li>
+                  </ul>
+                </div>
+              </section>
+
+              {/* Randomize Random Tile */}
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Randomize Random Tile 🎲
+                </h3>
+                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                  <p className="font-semibold mb-1">Type: Board modification (random targeting)</p>
+                  <p className="text-sm mb-2">Randomly changes the task of one tile on the board to a different task from the same difficulty pool.</p>
+                  <p className="font-semibold text-xs mb-1">✅ Can Target:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Clean, unmodified tiles only</li>
+                    <li>Any tile from #2 to #55 (excluding tile 1 and final tile)</li>
+                    <li>Revealed tiles</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">❌ Cannot Target:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Tile 1 (starting tile)</li>
+                    <li>Final tile (56) - cannot be randomized</li>
+                    <li>Already changed tiles (copied, changed, or doubled)</li>
+                    <li>Tiles with teams standing on them</li>
+                    <li>Hidden tiles</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Special Mechanics:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Target is selected completely randomly - you don't choose</li>
+                    <li>Replacement task is random from the tile's difficulty pool</li>
+                    <li>Shows purple 🔄 badge (treated as "changed" tile)</li>
+                    <li>Cannot be changed again after randomization</li>
+                    <li>Triggers powerup cooldown</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Chaotic effect - could help or hurt any team</li>
+                    <li>Use when ahead to create unpredictability</li>
+                    <li>May force teams to adapt their strategies</li>
+                  </ul>
+                </div>
+              </section>
+
+              {/* Mystery Powerup */}
+              <section>
+                <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Mystery Powerup 🎁
+                </h3>
+                <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                  <p className="font-semibold mb-1">Type: Lootbox (random reward)</p>
+                  <p className="text-sm mb-2">Open a mystery box to receive one random powerup from a curated pool.</p>
+                  <p className="font-semibold text-xs mb-1">Possible Rewards:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Skip +1</li>
+                    <li>Send Back 1</li>
+                    <li>Powerup Insurance</li>
+                    <li>Steal Powerup</li>
+                    <li>Cooldown Lock</li>
+                    <li>Randomize Random Tile</li>
+                    <li>Clear Cooldown</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">How It Works:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Randomly selects one powerup from the reward pool</li>
+                    <li>Consumes the Mystery Powerup</li>
+                    <li>Adds the reward to your inventory immediately</li>
+                    <li>Popup notification shows what you received</li>
+                    <li>Triggers powerup cooldown</li>
+                  </ul>
+                  <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>High-risk, high-reward - could get powerful powerups</li>
+                    <li>All possible rewards are useful</li>
+                    <li>Good when you need versatility but don't know what's coming</li>
                   </ul>
                 </div>
               </section>
