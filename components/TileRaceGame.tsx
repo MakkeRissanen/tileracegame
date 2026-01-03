@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGameSync } from "@/hooks/useGameSync";
 import { useTeamSession } from "@/hooks/useTeamSession";
 import { useGameHandlers } from "@/hooks/useGameHandlers";
@@ -32,6 +32,7 @@ import EditPoolTaskModal from "./EditPoolTaskModal";
 import ClaimPowerupConfirmModal from "./ClaimPowerupConfirmModal";
 import PowerupClaimPlayerPickerModal from "./PowerupClaimPlayerPickerModal";
 import RulebookModal from "./RulebookModal";
+import { Modal } from "./ui";
 import { PoolTask } from "@/types/game";
 import { verifyTeamCredentials, verifyAdminCredentials } from "@/lib/teamAuth";
 
@@ -78,6 +79,10 @@ export default function TileRaceGame() {
   const [showBombTrigger, setShowBombTrigger] = useState(false);
   const [bombTriggerData, setBombTriggerData] = useState<{ bomberName: string; fromTile: number; toTile: number } | null>(null);
   const [adminBombVisibility, setAdminBombVisibility] = useState(false);
+  const [showTimeBombReceived, setShowTimeBombReceived] = useState(false);
+  
+  // Track which log entries have been shown to prevent duplicate popups
+  const shownLogIds = useRef<Set<string>>(new Set());
 
   // Handle team login with authentication
   const handleTeamLogin = async (team: Team, password: string) => {
@@ -171,6 +176,12 @@ export default function TileRaceGame() {
   useEffect(() => {
     if (myTeam && game.log && game.log.length > 0) {
       const lastLog = game.log[game.log.length - 1];
+      
+      // Skip if we've already shown this log entry
+      if (shownLogIds.current.has(lastLog.id)) {
+        return;
+      }
+      
       const mysteryPattern = new RegExp(`${myTeam.name} used Mystery Powerup and received (.+?)! 🎁`);
       const match = lastLog.message.match(mysteryPattern);
       if (match) {
@@ -187,6 +198,9 @@ export default function TileRaceGame() {
         const rewardId = labelToId[rewardLabel] || "skip1";
         setMysteryRewardId(rewardId);
         setShowMysteryResult(true);
+        
+        // Mark this log entry as shown
+        shownLogIds.current.add(lastLog.id);
       }
     }
   }, [game.log, myTeam]);
@@ -227,32 +241,6 @@ export default function TileRaceGame() {
       }
     }
   }, [game.log, game.lastBombTrigger, myTeam]);
-
-  // Detect mystery powerup usage for current team
-  useEffect(() => {
-    if (myTeam && game.log && game.log.length > 0) {
-      const lastLog = game.log[game.log.length - 1];
-      const mysteryPattern = new RegExp(`${myTeam.name} used Mystery Powerup and received (.+?)! 🎁`);
-      const match = lastLog.message.match(mysteryPattern);
-      if (match) {
-        // Extract the powerup ID from the label - need to reverse lookup
-        const rewardLabel = match[1];
-        // Map common labels to IDs
-        const labelToId: Record<string, string> = {
-          "Skip +1": "skip1",
-          "Send Back 1": "back1",
-          "Powerup Insurance": "powerupInsurance",
-          "Steal Powerup": "stealPowerup",
-          "Cooldown Lock": "cooldownLock",
-          "Randomize Random Tile": "randomizeRandomTile",
-          "Clear Cooldown": "clearCooldown"
-        };
-        const rewardId = labelToId[rewardLabel] || "skip1";
-        setMysteryRewardId(rewardId);
-        setShowMysteryResult(true);
-      }
-    }
-  }, [game.log, myTeam]);
 
   // Wrapper for PowerupTilesBoard - it expects a (tileId: number) => void but we'll just open the modal for myTeam
   const handleClaimPowerupFromBoard = (tileId: number) => {
@@ -923,8 +911,36 @@ export default function TileRaceGame() {
               });
               
               setShowSacrificeModal(false);
+              setShowTimeBombReceived(true);
             }}
           />
+        )}
+
+        {/* Time Bomb Received Confirmation Modal */}
+        {showTimeBombReceived && (
+          <Modal isOpen={true} onClose={() => setShowTimeBombReceived(false)} isDark={isDark} maxWidth="max-w-md" title="💣 Time Bomb Acquired!">
+            <div className="text-center space-y-4">
+              <div className="text-6xl">💣</div>
+              <p className="text-slate-300">
+                You have successfully obtained a <strong>Time Bomb</strong>. It has been automatically insured and added to your inventory.
+              </p>
+              <p className="text-sm text-green-300 font-semibold">
+                🛡️ This powerup is protected and cannot be stolen or disabled!
+              </p>
+              <p className="text-sm text-blue-300 font-semibold">
+                🔒 Complete secrecy: No one else knows you have this - not even admins!
+              </p>
+              <p className="text-sm text-yellow-300 font-semibold">
+                💬 Want to strategize? Discuss with your team in a private channel!
+              </p>
+              <button
+                onClick={() => setShowTimeBombReceived(false)}
+                className="mt-4 px-6 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold transition-colors"
+              >
+                Got it!
+              </button>
+            </div>
+          </Modal>
         )}
 
         {/* Rulebook Modal */}

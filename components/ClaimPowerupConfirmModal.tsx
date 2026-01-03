@@ -18,7 +18,10 @@ export default function ClaimPowerupConfirmModal({
 }: ClaimPowerupConfirmModalProps) {
   if (!tile) return null;
 
-  const alreadyClaimed = (team.claimedPowerupTiles || []).includes(tile.id);
+  // For unlimited claim type, never show as "already claimed"
+  const alreadyClaimed = tile.claimType === "unlimited" 
+    ? false 
+    : (team.claimedPowerupTiles || []).includes(tile.id);
 
   // Get powerup label by ID
   const getPowerupLabel = (powerupId: string): string => {

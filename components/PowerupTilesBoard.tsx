@@ -36,6 +36,11 @@ export default function PowerupTilesBoard({
     const claimType = tile.claimType || "eachTeam";
     const tileId = Number(tile.id);
 
+    // Unlimited claim type - always allowed
+    if (claimType === "unlimited") {
+      return { allowed: true };
+    }
+
     if (claimType === "eachTeam") {
       const alreadyClaimed = (myTeam?.claimedPowerupTiles || []).includes(tileId);
       if (alreadyClaimed) return { allowed: false, reason: "Already claimed" };

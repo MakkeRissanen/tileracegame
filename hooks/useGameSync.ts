@@ -87,15 +87,6 @@ export function useGameSync(gameId: string = "main", enabled: boolean = true) {
     try {
       const gameRef = ref(database, `games/${gameId}`);
       
-      // Apply immediate optimistic update for instant UI feedback
-      const currentState = game;
-      const validationCheck = validateEvent(currentState, event);
-      if (validationCheck.valid) {
-        const immediateOptimistic = applyEvent(currentState, event);
-        optimisticState.current = immediateOptimistic;
-        setGame(immediateOptimistic);
-      }
-      
       let optimisticNewState: GameState | null = null;
       
       // Use Firebase transaction for atomic operation

@@ -1923,6 +1923,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
 
         // Validate claim type
         const alreadyClaimed = (team.claimedPowerupTiles || []).includes(tile.id);
+        
         if (tile.claimType === "eachTeam" && alreadyClaimed) {
           return addLog(game, `⚠️ ${team.name} already claimed this powerup`);
         }
@@ -1935,6 +1936,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             return addLog(game, `⚠️ Another team already claimed this powerup`);
           }
         }
+        
+        // For unlimited claim type, don't track claims at all (no restrictions)
 
         // Validate reward exists
         if (!tile.rewardPowerupId) {
@@ -1962,11 +1965,15 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
 
           const updatedTeam = { ...t };
           
-          // Add to claimed powerup tiles
-          updatedTeam.claimedPowerupTiles = [
-            ...(t.claimedPowerupTiles || []),
-            tile.id,
-          ];
+          // Add to claimed powerup tiles (except for unlimited claim type)
+          if (tile.claimType !== "unlimited") {
+            updatedTeam.claimedPowerupTiles = [
+              ...(t.claimedPowerupTiles || []),
+              tile.id,
+            ];
+          } else {
+            updatedTeam.claimedPowerupTiles = t.claimedPowerupTiles || [];
+          }
 
           // Award points to players
           const pointsPerCompletion = tile.pointsPerCompletion || 1;

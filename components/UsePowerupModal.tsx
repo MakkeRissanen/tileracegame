@@ -65,6 +65,7 @@ export default function UsePowerupModal({
     }
 
     const teamOnTile = game.teams?.some((t) => t.pos === tileNum);
+    const otherTeamOnTile = game.teams?.some((t) => t.pos === tileNum && t.id !== team.id);
 
     if (selectedPowerup === "copypaste") {
       if (teamOnTile) return { allowed: false, reason: "Team on tile" };
@@ -84,7 +85,7 @@ export default function UsePowerupModal({
       if (changedTiles.has(tileNum)) return { allowed: false, reason: "Already changed" };
       // Note: Doubled tiles CAN be copied (retaliate mechanic)
     } else if (selectedPowerup === "changeTile") {
-      if (teamOnTile) return { allowed: false, reason: "Team on tile" };
+      if (otherTeamOnTile) return { allowed: false, reason: "Another team on tile" };
       if (tileNum === MAX_TILE) return { allowed: false, reason: "Final tile" };
       if (changedTiles.has(tileNum)) return { allowed: false, reason: "Already changed" };
       if (copyPasteTiles.has(tileNum)) return { allowed: false, reason: "Already copied" };
@@ -115,7 +116,7 @@ export default function UsePowerupModal({
     const data: any = { powerupId: selectedPowerup };
 
     // Add target team if needed
-    if (["back1", "back2", "back3", "disablePowerup"].includes(selectedPowerup)) {
+    if (["back1", "back2", "back3", "disablePowerup", "cooldownLock"].includes(selectedPowerup)) {
       if (!targetTeamId) {
         alert("Please select a target team");
         return;
@@ -251,11 +252,15 @@ export default function UsePowerupModal({
     const def = POWERUP_DEFS.find((p) => p.id === selectedPowerup);
     if (!def) return false;
 
-    if (def.kind === "target" || selectedPowerup === "disablePowerup") {
+    if (def.kind === "target" || selectedPowerup === "disablePowerup" || selectedPowerup === "cooldownLock") {
       if (!targetTeamId) return false;
     }
 
     if (selectedPowerup === "disablePowerup" || selectedPowerup === "doublePowerup") {
+      if (!targetPowerupId) return false;
+    }
+
+    if (selectedPowerup === "powerupInsurance" || selectedPowerup === "stealPowerup") {
       if (!targetPowerupId) return false;
     }
 

@@ -563,6 +563,8 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Admins cannot detect bombs by editing tiles</li>
                     <li>Only the planter sees a private notification when placing</li>
                     <li>Only the victim and planter know when the bomb triggers</li>
+                    <li><strong>No one else knows you have this powerup</strong> - sacrificing and claiming happens in complete secrecy</li>
+                    <li><strong>Coordinate with your team in private channels</strong> to plan bomb placements strategically</li>
                     <li>This ensures complete strategic surprise</li>
                   </ul>
                   <p className="font-semibold text-xs mt-2 mb-1">Special Mechanics:</p>
@@ -646,34 +648,40 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                 </h3>
                 <div className={`p-3 rounded-lg ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
                   <p className="font-semibold mb-1">Type: Board modification (random targeting)</p>
-                  <p className="text-sm mb-2">Randomly changes the task of one tile on the board to a different task from the same difficulty pool.</p>
+                  <p className="text-sm mb-2">Randomly selects one tile on the board and changes it to a random task from ANY difficulty pool. The tile's difficulty can change!</p>
                   <p className="font-semibold text-xs mb-1">✅ Can Target:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
                     <li>Clean, unmodified tiles only</li>
                     <li>Any tile from #2 to #55 (excluding tile 1 and final tile)</li>
+                    <li>Tiles at or ahead of the farthest team's position</li>
                     <li>Revealed tiles</li>
                   </ul>
                   <p className="font-semibold text-xs mt-2 mb-1">❌ Cannot Target:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
                     <li>Tile 1 (starting tile)</li>
                     <li>Final tile (56) - cannot be randomized</li>
-                    <li>Already changed tiles (copied, changed, or doubled)</li>
+                    <li>Already altered tiles (copied, changed, or doubled)</li>
                     <li>Tiles with teams standing on them</li>
+                    <li>Tiles behind the farthest team</li>
                     <li>Hidden tiles</li>
                   </ul>
                   <p className="font-semibold text-xs mt-2 mb-1">Special Mechanics:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Target is selected completely randomly - you don't choose</li>
-                    <li>Replacement task is random from the tile's difficulty pool</li>
+                    <li><strong>Target is selected completely randomly</strong> - you don't choose</li>
+                    <li><strong>Difficulty can change!</strong> Replacement task is random from ANY difficulty pool (easy/medium/hard)</li>
+                    <li>Can use any task - even tasks already used elsewhere on the board</li>
+                    <li>Does NOT mark task as "used" - same task can appear multiple times</li>
                     <li>Shows purple 🔄 badge (treated as "changed" tile)</li>
-                    <li>Cannot be changed again after randomization</li>
+                    <li>Cannot be changed or modified again after randomization</li>
                     <li>Triggers powerup cooldown</li>
                   </ul>
                   <p className="font-semibold text-xs mt-2 mb-1">Strategy:</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Chaotic effect - could help or hurt any team</li>
+                    <li>Extremely chaotic effect - could help or hurt any team</li>
+                    <li>Can turn easy tiles into hard tiles or vice versa</li>
                     <li>Use when ahead to create unpredictability</li>
-                    <li>May force teams to adapt their strategies</li>
+                    <li>May force teams to adapt their strategies mid-race</li>
+                    <li>High-risk chaos tool</li>
                   </ul>
                 </div>
               </section>

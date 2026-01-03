@@ -293,6 +293,12 @@ function TeamsSidebar({
                         </>
                       )}
                     </Button>
+                    {/* Cooldown indicator below button */}
+                    {team.powerupCooldown === 0 && (
+                      <div className={`text-center text-[10px] mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Cooldown: 0
+                      </div>
+                    )}
                     {team.powerupCooldown > 0 && team.inventory?.includes("clearCooldown") && (
                       <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
                         <button
@@ -404,6 +410,12 @@ function TeamsSidebar({
                         </>
                       )}
                     </Button>
+                    {/* Cooldown indicator below button */}
+                    {team.powerupCooldown === 0 && (
+                      <div className={`text-center text-[10px] mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Cooldown: 0
+                      </div>
+                    )}
                     {team.powerupCooldown > 0 && team.inventory?.includes("clearCooldown") && (
                       <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-2.5">
                         <button

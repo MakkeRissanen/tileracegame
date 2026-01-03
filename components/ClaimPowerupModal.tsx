@@ -56,19 +56,21 @@ export default function ClaimPowerupModal({
         );
         if (claimingTeam) {
           claimedByTeam = claimingTeam.name;
-          disabled = claimingTeam.id !== team.id;
+          disabled = true; // First team only - once claimed by anyone, disable for everyone
         }
       } else if (tile.claimType === "eachTeam") {
         disabled = claimed;
+      } else if (tile.claimType === "unlimited") {
+        // Unlimited = never disabled, never show as claimed
+        disabled = false;
       }
-      // unlimited = never disabled
 
       // Also disable if no reward
       if (!tile.rewardPowerupId) {
         disabled = true;
       }
 
-      return { ...tile, claimed, claimedByTeam, disabled };
+      return { ...tile, claimed: tile.claimType === "unlimited" ? false : claimed, claimedByTeam, disabled };
     });
   };
 

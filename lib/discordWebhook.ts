@@ -92,7 +92,7 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
     DELETE_TEAM: 0xff0000, // Red
   };
   
-  const color = colors[event.type] || 0x808080; // Default gray
+  let color = colors[event.type] || 0x808080; // Default gray
   
   // Format event description based on type
   let title = "";
@@ -212,19 +212,49 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
       const useTeamName = getTeamName(event.teamId);
       const powerupName = getPowerupName(event.powerupId);
       
-      // Check if admin triggered
-      if (event.adminName) {
-        title = `${event.adminName}\n⚡ ${useTeamName} used\n${powerupName}`;
-      } else {
-        title = `⚡ ${useTeamName} used\n${powerupName}`;
+      // Check if the action failed by looking at the latest log entry
+      let isFailed = false;
+      let failureReason = "";
+      if (gameState && gameState.log && gameState.log.length > 0) {
+        const latestLog = gameState.log[gameState.log.length - 1];
+        // Check if the log message indicates a failure
+        if (latestLog.message.includes("tried to use") && latestLog.message.includes(useTeamName)) {
+          isFailed = true;
+          // Extract the failure reason (everything after "but")
+          const match = latestLog.message.match(/but (.+)/);
+          if (match) {
+            failureReason = match[1];
+          }
+        }
       }
-      description = "";
       
-      if (event.targetId) {
-        const targetName = getTeamName(event.targetId);
-        fields.push({ name: "Target Team", value: targetName, inline: true });
+      // Check if admin triggered
+      if (isFailed) {
+        // Failed action
+        color = 0xFF0000; // Red color for failures
+        if (event.adminName) {
+          title = `${event.adminName}\n⚠️ ${useTeamName} failed to use\n${powerupName}`;
+        } else {
+          title = `⚠️ ${useTeamName} failed to use\n${powerupName}`;
+        }
+        description = failureReason ? `**Error:** ${failureReason}` : "Invalid action";
+      } else {
+        // Successful action
+        if (event.adminName) {
+          title = `${event.adminName}\n⚡ ${useTeamName} used\n${powerupName}`;
+        } else {
+          title = `⚡ ${useTeamName} used\n${powerupName}`;
+        }
+        description = "";
       }
-      if (event.futureTile !== undefined && gameState) {
+      
+      // Only add detail fields if the action succeeded
+      if (!isFailed) {
+        if (event.targetId) {
+          const targetName = getTeamName(event.targetId);
+          fields.push({ name: "Target Team", value: targetName, inline: true });
+        }
+        if (event.futureTile !== undefined && gameState) {
         const targetTile = gameState.raceTiles.find(t => t.n === event.futureTile);
         if (targetTile) {
           // For copy/paste and change tile, show the task details
@@ -466,6 +496,7 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
           }
         }
       }
+      } // End of !isFailed check for USE_POWERUP fields
       break;
       
     case "ADD_TEAM":
@@ -557,6 +588,30 @@ function eventToEmbed(event: GameEvent, gameState?: GameState): DiscordEmbed {
       }
       
       description = `**${sacrificeTeamName}** sacrificed 3 powerups (${sacrificedPowerups}) to obtain a **Time Bomb**`;
+      break;
+      
+    case "ADMIN_SET_FOG_OF_WAR":
+      const fogMode = event.mode || "none";
+      const fogAdminName = event.adminName || "Admin";
+      
+      if (fogMode === "none") {
+        title = `${fogAdminName}\n👁️ Fog of War Enabled`;
+        description = "Fog of war has been re-enabled - tiles will be revealed progressively";
+      } else if (fogMode === "admin") {
+        title = `${fogAdminName}\n👁️ Fog of War Disabled (Admin Only)`;
+        description = "All tiles revealed for admin view only";
+      } else {
+        title = `${fogAdminName}\n👁️ Fog of War Disabled (Everyone)`;
+        description = "All tiles revealed for all players";
+      }
+      break;
+      
+    case "ADMIN_LOG_EVENT":
+      const logMessage = event.message || "Event logged";
+      const logAdminName = event.adminName || "Admin";
+      
+      title = logAdminName;
+      description = logMessage;
       break;
       
     default:
@@ -705,11 +760,18 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
     if (targetTeam) affectedTeams.add({ name: targetTeam.name, slot: targetTeam.discordWebhookSlot });
   }
   
+  // For randomizeRandomTile powerup, notify ALL teams (affects everyone)
+  if (event.type === 'USE_POWERUP' && 'powerupId' in event && event.powerupId === 'randomizeRandomTile' && gameState) {
+    gameState.teams.forEach(team => {
+      affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+    });
+  }
+  
   // For timeBomb TRIGGER (when someone steps on it), notify ALL teams
   if (event.type === 'COMPLETE_TILE' && gameState?.lastBombTrigger) {
     const bombData = gameState.lastBombTrigger;
-    // Only send if this is recent (within last 5 seconds)
-    if (Date.now() - bombData.timestamp < 5000) {
+    // Only send if this is recent AND the victim is the team completing the tile
+    if (Date.now() - bombData.timestamp < 5000 && bombData.victim === event.teamId) {
       gameState.teams.forEach(team => {
         affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
       });

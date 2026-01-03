@@ -249,11 +249,11 @@ export function handleUsePowerup(
       );
     }
 
-    const teamOnTile = (game.teams || []).some((t) => t.pos === tileN);
-    if (teamOnTile) {
+    const otherTeamOnTile = (game.teams || []).some((t) => t.pos === tileN && t.id !== teamId);
+    if (otherTeamOnTile) {
       return addLog(
         game,
-        `${team.name} cannot change Tile ${tileN} because a team is standing on it.`
+        `${team.name} cannot change Tile ${tileN} because another team is standing on it.`
       );
     }
 
@@ -297,9 +297,15 @@ export function handleUsePowerup(
           }
         : rt
     );
-    const usedPoolTaskIds = Array.from(
-      new Set([...(next.usedPoolTaskIds || []), chosen.id, ...(oldTaskId ? [oldTaskId] : [])])
-    );
+    
+    // Add new task to used list, remove old task from used list (return it to pool)
+    const usedSet = new Set(next.usedPoolTaskIds || []);
+    usedSet.add(chosen.id);
+    if (oldTaskId) {
+      usedSet.delete(oldTaskId);
+    }
+    const usedPoolTaskIds = Array.from(usedSet);
+    
     const changedTilesArr = Array.from(
       new Set([...(next.changedTiles || []), tileN])
     );
@@ -317,15 +323,25 @@ export function handleUsePowerup(
 
   // Randomize random tile
   if (powerupId === "randomizeRandomTile") {
-    // Find all eligible tiles (not changed, not occupied, not final tile)
+    // Find all eligible tiles (not altered by any powerup, not occupied, not final tile, not behind last team)
     const changedTiles = new Set(game.changedTiles || []);
     const occupiedTiles = new Set(game.teams.map(t => t.pos));
+    const doubledTiles = new Set(game.doubledTiles || []);
+    const copyPasteTiles = new Set(game.copyPasteTiles || []);
+    const copiedFromTiles = new Set(game.copiedFromTiles || []);
+    
+    // Find the farthest team position
+    const farthestPos = Math.max(...game.teams.map(t => t.pos), 1);
     
     const eligibleTiles = game.raceTiles.filter(tile => 
       tile.n >= 2 && // Not tile 1
       tile.n < MAX_TILE && // Not final tile
+      tile.n >= farthestPos && // Not behind the farthest team
       !changedTiles.has(tile.n) && // Not already changed
-      !occupiedTiles.has(tile.n) // Not occupied by a team
+      !occupiedTiles.has(tile.n) && // Not occupied by a team
+      !doubledTiles.has(tile.n) && // Not a doubled tile
+      !copyPasteTiles.has(tile.n) && // Not a pasted tile
+      !copiedFromTiles.has(tile.n) // Not a copied-from tile
     );
 
     if (eligibleTiles.length === 0) {
@@ -339,29 +355,25 @@ export function handleUsePowerup(
     const randomTile = eligibleTiles[Math.floor(Math.random() * eligibleTiles.length)];
     const tileN = randomTile.n;
 
-    // Get the difficulty pool for this tile
-    const diff = tileDiff(game, tileN);
-    const poolAll = game.taskPools?.[String(diff)] || [];
-    const used = new Set(game.usedPoolTaskIds || []);
-    const poolUnused = poolAll.filter((x) => !used.has(x.id));
+    // Collect ALL tasks from ALL difficulty pools (can change difficulty)
+    const allTasks: any[] = [];
+    ['1', '2', '3'].forEach(difficulty => {
+      const pool = game.taskPools?.[difficulty] || [];
+      allTasks.push(...pool.map(task => ({ ...task, difficulty: Number(difficulty) })));
+    });
 
-    if (poolUnused.length === 0) {
+    if (allTasks.length === 0) {
       return addLog(
         game,
-        `${team.name} tried to use ${powerupLabel(powerupId)}, but there are no unused tasks in the difficulty ${diff} pool.`
+        `${team.name} tried to use ${powerupLabel(powerupId)}, but there are no tasks available in any pool.`
       );
     }
 
-    // Pick a random unused task
-    const chosen = poolUnused[Math.floor(Math.random() * poolUnused.length)];
+    // Pick a random task from any pool (used or unused, any difficulty)
+    const chosen = allTasks[Math.floor(Math.random() * allTasks.length)];
 
     const beforeLabel = tileLabel(game, tileN);
-    const normalize = (str: string) =>
-      (str || "").trim().toLowerCase().replace(/\s+/g, " ");
-    const beforeLabelNormalized = normalize(beforeLabel);
-    const oldTaskId = poolAll.find(
-      (x) => normalize(x.label) === beforeLabelNormalized
-    )?.id;
+    const beforeDifficulty = tileDiff(game, tileN);
 
     let next = consumePowerup(game, teamId, powerupId);
 
@@ -372,21 +384,26 @@ export function handleUsePowerup(
             label: chosen.label,
             instructions: chosen.instructions || "",
             image: chosen.image || "",
+            difficulty: chosen.difficulty as 1 | 2 | 3,
+            maxCompletions: chosen.maxCompletions || 1,
+            minCompletions: chosen.minCompletions || 1,
           }
         : rt
     );
-    const usedPoolTaskIds = Array.from(
-      new Set([...(next.usedPoolTaskIds || []), chosen.id, ...(oldTaskId ? [oldTaskId] : [])])
-    );
+    
+    // Don't mark task as used - it can be reused
     const changedTilesArr = Array.from(
       new Set([...(next.changedTiles || []), tileN])
     );
 
-    next = { ...next, raceTiles, usedPoolTaskIds, changedTiles: changedTilesArr };
+    next = { ...next, raceTiles, changedTiles: changedTilesArr };
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
+    const difficultyChange = beforeDifficulty !== chosen.difficulty 
+      ? ` (D${beforeDifficulty} → D${chosen.difficulty})`
+      : ` (D${chosen.difficulty})`;
     next = addLog(
       next,
-      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on Tile ${tileN} (D${diff}) → "${beforeLabel}" → "${chosen.label}"`
+      `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on Tile ${tileN}${difficultyChange} → "${beforeLabel}" → "${chosen.label}"`
     );
     return next;
   }
