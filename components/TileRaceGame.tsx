@@ -717,6 +717,8 @@ export default function TileRaceGame() {
               if (!confirm("Clear all task pools?")) return;
               await dispatch({ type: "ADMIN_CLEAR_TASK_POOLS" });
             }}
+            onClaimPowerupFromBoard={handleClaimPowerupFromBoard}
+            onEditPowerupTile={handleEditPowerupTile}
             dispatch={dispatch}
             adminBombVisibility={adminBombVisibility}
           />
@@ -738,6 +740,8 @@ export default function TileRaceGame() {
               if (!confirm("Clear all task pools?")) return;
               await dispatch({ type: "ADMIN_CLEAR_TASK_POOLS" });
             }}
+            onClaimPowerupFromBoard={handleClaimPowerupFromBoard}
+            onEditPowerupTile={handleEditPowerupTile}
             dispatch={dispatch}
             adminBombVisibility={adminBombVisibility}
           />

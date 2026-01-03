@@ -156,7 +156,7 @@ export default function PowerupTilesBoard({
               {/* Claim Button */}
               {isAdmin ? (
                 <Button
-                  onClick={() => onEditPowerupTile && onEditPowerupTile(tile.id)}
+                  onClick={() => onEditPowerupTile?.(tile.id)}
                   variant="secondary"
                   isDark={isDark}
                   className="w-full"

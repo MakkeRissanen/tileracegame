@@ -6,6 +6,7 @@ import RaceBoard from "./RaceBoard";
 import EventLog from "./EventLog";
 import TaskPoolsSection from "./TaskPoolsSection";
 import PlayerPointsPanel from "./PlayerPointsPanel";
+import PowerupTilesBoard from "./PowerupTilesBoard";
 
 interface MainGameLayoutProps {
   game: GameState;
@@ -21,6 +22,8 @@ interface MainGameLayoutProps {
   onClearCooldown?: (teamId: string) => void;
   onAdminToggleCooldown?: (teamId: string, currentValue: number) => void;
   onEditPoolTask?: (taskId: string) => void;
+  onClaimPowerupFromBoard?: (tileId: number) => void;
+  onEditPowerupTile?: (tileId: number) => void;
   dispatch: (event: any) => void;
   adminBombVisibility: boolean;
 }
@@ -39,6 +42,8 @@ export default function MainGameLayout({
   onClearCooldown,
   onAdminToggleCooldown,
   onEditPoolTask,
+  onClaimPowerupFromBoard,
+  onEditPowerupTile,
   dispatch,
   adminBombVisibility,
 }: MainGameLayoutProps) {
@@ -86,6 +91,18 @@ export default function MainGameLayout({
           </div>
         </div>
       </div>
+
+      {/* Powerup Tiles Board (Admin Only) */}
+      {isAdmin && (game.powerupTiles?.length || 0) > 0 && (
+        <PowerupTilesBoard
+          game={game}
+          isDark={isDark}
+          myTeam={myTeam}
+          isAdmin={isAdmin}
+          onClaimPowerup={onClaimPowerupFromBoard || (() => {})}
+          onEditPowerupTile={onEditPowerupTile}
+        />
+      )}
 
       {/* Task Pools (Admin Only) */}
       {isAdmin && (
