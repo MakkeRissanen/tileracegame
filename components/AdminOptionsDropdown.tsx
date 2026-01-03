@@ -19,6 +19,8 @@ interface AdminOptionsDropdownProps {
   onResetAll: () => void;
   adminBombVisibility: boolean;
   onToggleBombVisibility: () => void;
+  onDownloadBackup: () => void;
+  onRestoreBackup: () => void;
 }
 
 export default function AdminOptionsDropdown({
@@ -38,6 +40,8 @@ export default function AdminOptionsDropdown({
   onResetAll,
   adminBombVisibility,
   onToggleBombVisibility,
+  onDownloadBackup,
+  onRestoreBackup,
 }: AdminOptionsDropdownProps) {
   const [showDangerZone, setShowDangerZone] = useState(false);
 
@@ -56,8 +60,8 @@ export default function AdminOptionsDropdown({
     { label: "⚙️ Gradient settings", onClick: () => { onClose(); onGradientSettings(); }, masterOnly: true },
     { label: fogOfWarLabel, onClick: () => { onClose(); onDisableFogOfWar(); }, masterOnly: true },
     { label: bombVisibilityLabel, onClick: () => { onToggleBombVisibility(); }, masterOnly: false },
-    { label: "💾 Download Game Backup", onClick: () => { onClose(); alert("Download backup - Coming soon!"); }, masterOnly: true },
-    { label: "📂 Restore Game Backup", onClick: () => { onClose(); alert("Restore backup - Coming soon!"); }, masterOnly: true },
+    { label: "💾 Download Game Backup", onClick: () => { onClose(); onDownloadBackup(); }, masterOnly: true },
+    { label: "📂 Restore Game Backup", onClick: () => { onClose(); onRestoreBackup(); }, masterOnly: true },
     { label: "👤 Manage Admins", onClick: () => { onClose(); onManageAdmins(); }, masterOnly: true },
     { label: "🔑 Change Password", onClick: () => { onClose(); onChangePassword(); }, masterOnly: true },
     { label: "🔐 Set Team Passwords", onClick: () => { onClose(); onSetTeamPasswords(); } , masterOnly: true },

@@ -231,4 +231,5 @@ export type GameEvent =
   | { type: "ADMIN_UPDATE_POWERUP_TILE"; tileId: number; updates: Partial<PowerupTile>; teamClaims?: Array<{ teamId: string; claimed: boolean }> }
   | { type: "ADMIN_UPDATE_POOL_TASK"; taskId: string; updates: Partial<PoolTask> }
   | { type: "ADMIN_TOGGLE_COOLDOWN"; teamId: string; cooldownValue: number; adminName?: string }
-  | { type: "SACRIFICE_FOR_TIMEBOMB"; teamId: string; sacrificedPowerups: string[]; adminName?: string };
+  | { type: "SACRIFICE_FOR_TIMEBOMB"; teamId: string; sacrificedPowerups: string[]; adminName?: string }
+  | { type: "RESTORE_BACKUP"; gameState: GameState; adminName: string };

@@ -2002,6 +2002,21 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         return next;
       }
 
+      case "RESTORE_BACKUP": {
+        if (!event.adminName || !event.gameState) return game;
+
+        // Restore the game state from backup
+        const restoredState = event.gameState;
+        
+        // Add a log entry about the restore
+        const next = addLog(
+          restoredState,
+          `💾 ${event.adminName} restored game from backup`
+        );
+        
+        return next;
+      }
+
       default:
         return game;
     }

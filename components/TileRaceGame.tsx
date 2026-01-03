@@ -535,6 +535,93 @@ export default function TileRaceGame() {
     setPowerupClaimPickerOpen(false);
   };
 
+  // Backup download handler
+  const handleDownloadBackup = () => {
+    try {
+      // Create a backup object with timestamp
+      const backup = {
+        timestamp: new Date().toISOString(),
+        version: "1.0",
+        gameState: game,
+      };
+
+      // Convert to JSON string
+      const jsonString = JSON.stringify(backup, null, 2);
+      
+      // Create a blob and download link
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tilerace-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Log the backup
+      dispatch({
+        type: "ADMIN_LOG_EVENT",
+        message: `💾 ${adminName} downloaded game backup`,
+        adminName: adminName || "Admin",
+      });
+    } catch (error) {
+      console.error("Error downloading backup:", error);
+      alert("Failed to download backup. Check console for details.");
+    }
+  };
+
+  // Backup restore handler
+  const handleRestoreBackup = () => {
+    if (!confirm("⚠️ Are you sure you want to restore from a backup? This will overwrite ALL current game data!")) {
+      return;
+    }
+
+    // Create a file input element
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+
+        // Validate backup structure
+        if (!backup.gameState || !backup.timestamp) {
+          alert("Invalid backup file format. Missing required fields.");
+          return;
+        }
+
+        // Confirm restore with timestamp
+        const backupDate = new Date(backup.timestamp).toLocaleString();
+        if (!confirm(`Restore backup from ${backupDate}?\n\nThis will overwrite all current game data.`)) {
+          return;
+        }
+
+        // Restore the game state
+        await dispatch({
+          type: "RESTORE_BACKUP",
+          gameState: backup.gameState,
+          adminName: adminName || "Admin",
+        });
+
+        alert("✅ Backup restored successfully!");
+        
+        // Refresh the page to reload the restored state
+        window.location.reload();
+      } catch (error) {
+        console.error("Error restoring backup:", error);
+        alert("Failed to restore backup. Check console for details and ensure the file is valid.");
+      }
+    };
+
+    input.click();
+  };
+
   if (loading || isRestoring) {
     return (
       <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} p-8`}>
@@ -591,6 +678,8 @@ export default function TileRaceGame() {
                 adminName: adminName || "Admin",
               });
             }}
+            onDownloadBackup={handleDownloadBackup}
+            onRestoreBackup={handleRestoreBackup}
           />
         </GameHeader>
 
