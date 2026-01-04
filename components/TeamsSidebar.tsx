@@ -19,6 +19,7 @@ interface TeamsSidebarProps {
   onAdminToggleCooldown?: (teamId: string, currentValue: number) => void;
   dispatch: (event: any) => void;
   adminBombVisibility: boolean;
+  isSpectator?: boolean;
 }
 
 function TeamsSidebar({
@@ -35,6 +36,7 @@ function TeamsSidebar({
   onAdminToggleCooldown,
   dispatch,
   adminBombVisibility,
+  isSpectator = false,
 }: TeamsSidebarProps) {
   const MAX_TILE = 56;
   const [showPlayerModal, setShowPlayerModal] = useState(false);
@@ -242,7 +244,7 @@ function TeamsSidebar({
             )}
 
             {/* Admin Action Buttons */}
-            {isAdmin && (
+            {isAdmin && !isSpectator && (
               <div className="space-y-2 mb-3">
                 <div className={`text-xs font-semibold mb-2 ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
                   👑 Admin Controls
@@ -363,7 +365,7 @@ function TeamsSidebar({
             )}
 
             {/* Action Buttons (only for logged-in team) */}
-            {isMyTeam && (
+            {isMyTeam && !isSpectator && (
               <div className="space-y-2">
                 <Button
                   variant="primary"

@@ -127,6 +127,23 @@ export default function TeamSelect({ isDark, onSelectTeam, onAdminLogin, isLoadi
           {isLoading ? "Authenticating..." : isAdminMode ? "🔑 Login as Admin" : "Join Team"}
         </Button>
       </form>
+
+      {/* Spectator Mode Link */}
+      <div className="mt-6 pt-6 border-t border-slate-600">
+        <a
+          href="/spectator"
+          className={`block text-center py-3 px-4 rounded-lg transition-colors ${
+            isDark
+              ? "bg-slate-700 hover:bg-slate-600 text-slate-200"
+              : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+          }`}
+        >
+          👀 View as Spectator (No Login Required)
+        </a>
+        <p className={`text-xs text-center mt-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+          View the board without interacting
+        </p>
+      </div>
     </Card>
   );
 }

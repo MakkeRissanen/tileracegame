@@ -7,26 +7,30 @@ interface GameHeaderProps {
   isDark: boolean;
   myTeam: Team | null;
   isAdmin: boolean;
-  showAdminOptions: boolean;
-  onShowAdminLogin: () => void;
-  onToggleAdminOptions: () => void;
-  onAdminLogout: () => void;
-  onLogout: () => void;
-  onShowRulebook: () => void;
+  showAdminOptions?: boolean;
+  onShowAdminLogin?: () => void;
+  onToggleAdminOptions?: () => void;
+  onAdminLogout?: () => void;
+  onLogout?: () => void;
+  onShowRulebook?: () => void;
   children?: React.ReactNode; // For admin options dropdown
+  isSpectator?: boolean;
+  game?: any;
 }
 
 export default function GameHeader({
   isDark,
   myTeam,
   isAdmin,
-  showAdminOptions,
-  onShowAdminLogin,
-  onToggleAdminOptions,
-  onAdminLogout,
-  onLogout,
-  onShowRulebook,
+  showAdminOptions = false,
+  onShowAdminLogin = () => {},
+  onToggleAdminOptions = () => {},
+  onAdminLogout = () => {},
+  onLogout = () => {},
+  onShowRulebook = () => {},
   children,
+  isSpectator = false,
+  game,
 }: GameHeaderProps) {
   return (
     <header className="mb-8 flex justify-between items-start">
@@ -35,21 +39,23 @@ export default function GameHeader({
           Tile Race Game
         </h1>
         <p className={`mt-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-          Real-time multiplayer tile racing competition
+          {isSpectator ? "Spectator Mode - Read Only View" : "Real-time multiplayer tile racing competition"}
         </p>
       </div>
       <div className="flex items-center gap-3">
-        {/* Rulebook Button - Always visible */}
-        <Button
-          onClick={onShowRulebook}
-          variant="secondary"
-          isDark={isDark}
-        >
-          📖 Rules
-        </Button>
+        {/* Rulebook Button - Always visible if not spectator */}
+        {!isSpectator && (
+          <Button
+            onClick={onShowRulebook}
+            variant="secondary"
+            isDark={isDark}
+          >
+            📖 Rules
+          </Button>
+        )}
 
         {/* Admin Options */}
-        {isAdmin && (
+        {isAdmin && !isSpectator && (
           <>
             <div className="relative">
               <Button
@@ -71,7 +77,7 @@ export default function GameHeader({
           </>
         )}
         
-        {myTeam && (
+        {myTeam && !isSpectator && (
           <>
             <div className="text-right">
               <div className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>

@@ -26,6 +26,7 @@ interface MainGameLayoutProps {
   onEditPowerupTile?: (tileId: number) => void;
   dispatch: (event: any) => void;
   adminBombVisibility: boolean;
+  isSpectator?: boolean;
 }
 
 export default function MainGameLayout({
@@ -46,6 +47,7 @@ export default function MainGameLayout({
   onEditPowerupTile,
   dispatch,
   adminBombVisibility,
+  isSpectator = false,
 }: MainGameLayoutProps) {
   return (
     <div className="space-y-3 md:space-y-6">
@@ -67,6 +69,7 @@ export default function MainGameLayout({
             onAdminToggleCooldown={onAdminToggleCooldown}
             dispatch={dispatch}
             adminBombVisibility={adminBombVisibility}
+            isSpectator={isSpectator}
           />
         </div>
 
