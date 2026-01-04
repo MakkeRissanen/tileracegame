@@ -32,6 +32,7 @@ export default function EditTeamModal({
   const [inventory, setInventory] = useState<string[]>(team.inventory || []);
   const [selectedPowerup, setSelectedPowerup] = useState("");
   const [webhookSlot, setWebhookSlot] = useState<number | null>(team.discordWebhookSlot ?? null);
+  const [discordRoleId, setDiscordRoleId] = useState<string>(team.discordRoleId || "");
 
   // Sync state with team prop whenever modal opens or team changes
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function EditTeamModal({
       setPlayerPoints(team.playerPoints || {});
       setInventory(team.inventory || []);
       setWebhookSlot(team.discordWebhookSlot ?? null);
+      setDiscordRoleId(team.discordRoleId || "");
       setNewMember("");
       setSelectedPowerup("");
     }
@@ -95,6 +97,7 @@ export default function EditTeamModal({
       playerPoints,
       inventory,
       discordWebhookSlot: webhookSlot,
+      discordRoleId: discordRoleId || null,
     };
     onUpdateTeam(team.id, updates);
     onClose();
@@ -161,6 +164,25 @@ export default function EditTeamModal({
             </select>
             <p className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
               Assign this team to a Discord webhook channel (1-5)
+            </p>
+          </div>
+        )}
+
+        {/* Discord Role ID (Master Admin Only) */}
+        {isMasterAdmin && (
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+              Discord Role ID
+            </label>
+            <input
+              type="text"
+              value={discordRoleId}
+              onChange={(e) => setDiscordRoleId(e.target.value)}
+              className={inputClass(isDark)}
+              placeholder="e.g., 1234567890123456789"
+            />
+            <p className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              Discord role ID for @mentions. Right-click role → Copy ID (requires Developer Mode)
             </p>
           </div>
         )}

@@ -54,6 +54,7 @@ export interface Team {
   powerupCooldown: number; // Number of tiles until cooldown clears (0 = no cooldown)
   password: string | null;
   discordWebhookSlot?: number | null; // 1-5 for numbered webhook slots
+  discordRoleId?: string | null; // Discord role ID for @mentions (format: <@&ID>)
   insuredPowerups?: number[]; // Array of inventory indices that are insured
 }
 

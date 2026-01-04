@@ -675,6 +675,10 @@ async function sendToWebhook(webhookUrl: string, embed: DiscordEmbed, mentionTex
     // Add mention text if provided (for team-specific channels)
     if (mentionText) {
       payload.content = mentionText;
+      // Allow role mentions in the webhook
+      payload.allowed_mentions = {
+        parse: ["roles"]
+      };
     }
     
     const response = await fetch(webhookUrl, {
@@ -750,34 +754,34 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
   }
   
   // Collect all affected teams
-  const affectedTeams = new Set<{ name: string; slot?: number | null }>();
+  const affectedTeams = new Set<{ name: string; slot?: number | null; roleId?: string | null }>();
   
   // Get primary team (the team performing the action)
   if ('name' in event && event.name) {
-    affectedTeams.add({ name: event.name, slot: null });
+    affectedTeams.add({ name: event.name, slot: null, roleId: null });
   } else if ('teamId' in event && event.teamId && gameState) {
     const team = gameState.teams.find(t => t.id === event.teamId);
-    if (team) affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+    if (team) affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot, roleId: team.discordRoleId });
   }
   
   // For undo events, notify all affected teams
   if (event.type === 'ADMIN_UNDO' && 'affectedTeamIds' in event && event.affectedTeamIds && gameState) {
     event.affectedTeamIds.forEach(teamId => {
       const team = gameState.teams.find(t => t.id === teamId);
-      if (team) affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+      if (team) affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot, roleId: team.discordRoleId });
     });
   }
   
   // For targeted powerups, also notify the target team
   if (event.type === 'USE_POWERUP' && 'targetId' in event && event.targetId && gameState) {
     const targetTeam = gameState.teams.find(t => t.id === event.targetId);
-    if (targetTeam) affectedTeams.add({ name: targetTeam.name, slot: targetTeam.discordWebhookSlot });
+    if (targetTeam) affectedTeams.add({ name: targetTeam.name, slot: targetTeam.discordWebhookSlot, roleId: targetTeam.discordRoleId });
   }
   
   // For randomizeRandomTile powerup, notify ALL teams (affects everyone)
   if (event.type === 'USE_POWERUP' && 'powerupId' in event && event.powerupId === 'randomizeRandomTile' && gameState) {
     gameState.teams.forEach(team => {
-      affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+      affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot, roleId: team.discordRoleId });
     });
   }
   
@@ -787,7 +791,7 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
     // Only send if this is recent AND the victim is the team completing the tile
     if (Date.now() - bombData.timestamp < 5000 && bombData.victim === event.teamId) {
       gameState.teams.forEach(team => {
-        affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+        affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot, roleId: team.discordRoleId });
       });
     }
   }
@@ -799,7 +803,7 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
       // Add all teams EXCEPT the claiming team to affected teams
       gameState.teams.forEach(team => {
         if (team.id !== event.teamId) {
-          affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot });
+          affectedTeams.add({ name: team.name, slot: team.discordWebhookSlot, roleId: team.discordRoleId });
         }
       });
     }
@@ -826,7 +830,9 @@ export async function sendEventToDiscord(event: GameEvent, gameState?: GameState
       }
       
       if (teamWebhookUrl) {
-        const mention = `@${team.name}`;
+        // Use role mention format: <@&ROLE_ID> for proper Discord mentions
+        // If team has a discordRoleId, use it; otherwise fall back to plain text
+        const mention = team.roleId ? `<@&${team.roleId}>` : `@${team.name}`;
         await sendToWebhook(teamWebhookUrl, embed, mention);
       }
     }
