@@ -521,7 +521,7 @@ function TeamsSidebar({
                           isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'
                         }`}
                       >
-                        <span className="text-sm">{playerName}</span>
+                        <span className={`text-sm ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{playerName}</span>
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => decrementPlayer(playerName)}
