@@ -252,9 +252,9 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           revealedTiles.add(i);
         }
 
-        // Find farthest team position
+        // Find farthest team position (use updated teams, not old game.teams)
         let farthestPos = 1;
-        game.teams.forEach((team) => {
+        teams.forEach((team) => {
           if (team.pos > farthestPos) {
             farthestPos = team.pos;
           }
@@ -263,17 +263,13 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         // Determine vision range based on position
         let visionAhead;
         if (farthestPos >= MAX_TILE - 5) {
-          // Last 5 tiles: 2 tiles ahead
+          visionAhead = 1;
+        } else if (farthestPos >= MAX_TILE - 10) {
           visionAhead = 2;
-        } else if (farthestPos >= MAX_TILE - 15) {
-          // Last 15 tiles (before final 5): 3 tiles ahead
-          visionAhead = 3;
         } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
-          // Halfway point: 4 tiles ahead
-          visionAhead = 4;
+          visionAhead = 3;
         } else {
-          // Normal: 5 tiles ahead
-          visionAhead = 5;
+          visionAhead = 4;
         }
 
         // Reveal tiles from farthest position up to vision range (only add, never remove)
