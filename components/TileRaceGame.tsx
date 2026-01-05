@@ -689,6 +689,12 @@ export default function TileRaceGame() {
             }}
             onDownloadBackup={handleDownloadBackup}
             onRestoreBackup={handleRestoreBackup}
+            onRecalculateFog={() => {
+              dispatch({
+                type: "ADMIN_RECALCULATE_FOG",
+                adminName: adminName || "Admin",
+              });
+            }}
           />
         </GameHeader>
 

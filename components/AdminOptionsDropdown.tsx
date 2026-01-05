@@ -21,6 +21,7 @@ interface AdminOptionsDropdownProps {
   onToggleBombVisibility: () => void;
   onDownloadBackup: () => void;
   onRestoreBackup: () => void;
+  onRecalculateFog: () => void;
 }
 
 export default function AdminOptionsDropdown({
@@ -42,6 +43,7 @@ export default function AdminOptionsDropdown({
   onToggleBombVisibility,
   onDownloadBackup,
   onRestoreBackup,
+  onRecalculateFog,
 }: AdminOptionsDropdownProps) {
   const [showDangerZone, setShowDangerZone] = useState(false);
 
@@ -59,6 +61,7 @@ export default function AdminOptionsDropdown({
     { label: "📦 Import powerups", onClick: () => { onClose(); onImportPowerups(); }, masterOnly: true },
     { label: "⚙️ Gradient settings", onClick: () => { onClose(); onGradientSettings(); }, masterOnly: true },
     { label: fogOfWarLabel, onClick: () => { onClose(); onDisableFogOfWar(); }, masterOnly: true },
+    { label: "🔄 Recalculate Fog of War", onClick: () => { onClose(); onRecalculateFog(); }, masterOnly: true },
     { label: bombVisibilityLabel, onClick: () => { onToggleBombVisibility(); }, masterOnly: false },
     { label: "💾 Download Game Backup", onClick: () => { onClose(); onDownloadBackup(); }, masterOnly: true },
     { label: "📂 Restore Game Backup", onClick: () => { onClose(); onRestoreBackup(); }, masterOnly: true },

@@ -87,7 +87,7 @@ export function initialGame(): GameState {
     copiedFromTiles: [],
     doubledTiles: [],
     doubledTilesInfo: {},
-    revealedTiles: [1, 2, 3, 4, 5, 6, 7, 8],
+    revealedTiles: [1],
     playerPoints: {},
     timeBombTiles: {},
     teams: [],

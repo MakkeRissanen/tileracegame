@@ -247,10 +247,8 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         // Update revealed tiles based on dynamic vision
         const revealedTiles = new Set(game.revealedTiles || []);
         
-        // Always reveal first 8 tiles
-        for (let i = 1; i <= 8; i++) {
-          revealedTiles.add(i);
-        }
+        // Always reveal tile 1 (starting tile)
+        revealedTiles.add(1);
 
         // Find farthest team position (use updated teams, not old game.teams)
         let farthestPos = 1;
@@ -260,7 +258,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           }
         });
 
-        // Determine vision range based on position
+        // Determine vision range based on farthest position
         let visionAhead;
         if (farthestPos >= MAX_TILE - 5) {
           visionAhead = 1;
@@ -272,7 +270,7 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           visionAhead = 4;
         }
 
-        // Reveal tiles from farthest position up to vision range (only add, never remove)
+        // Reveal tiles from 1 up to farthest position + vision range (shared vision for all teams)
         // But NEVER reveal the final tile until a team reaches it
         for (let i = 1; i <= Math.min(farthestPos + visionAhead, MAX_TILE - 1); i++) {
           revealedTiles.add(i);
@@ -877,6 +875,50 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
       case "ADMIN_LOG_EVENT": {
         const message = event.message || "Admin action";
         return addLog(game, message);
+      }
+
+      case "ADMIN_RECALCULATE_FOG": {
+        const adminName = event.adminName || "Admin";
+        const revealedTiles = new Set<number>();
+        
+        // Always reveal tile 1 (starting tile)
+        revealedTiles.add(1);
+        
+        if (game.teams && game.teams.length > 0) {
+          // Find farthest team position
+          let farthestPos = 1;
+          game.teams.forEach((team) => {
+            if (team.pos > farthestPos) {
+              farthestPos = team.pos;
+            }
+          });
+
+          // Determine vision range based on position
+          let visionAhead;
+          if (farthestPos >= MAX_TILE - 5) {
+            visionAhead = 1;
+          } else if (farthestPos >= MAX_TILE - 10) {
+            visionAhead = 2;
+          } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
+            visionAhead = 3;
+          } else {
+            visionAhead = 4;
+          }
+
+          // Reveal tiles from 1 up to farthest position + vision range (shared vision for all teams)
+          for (let i = 1; i <= Math.min(farthestPos + visionAhead, MAX_TILE - 1); i++) {
+            revealedTiles.add(i);
+          }
+          
+          // Only reveal final tile if a team has reached it
+          if (farthestPos >= MAX_TILE) {
+            revealedTiles.add(MAX_TILE);
+          }
+        }
+        
+        let next: GameState = { ...game, revealedTiles: Array.from(revealedTiles) };
+        next = addLog(next, `🔄 ${adminName} recalculated fog of war (${revealedTiles.size} tiles revealed)`);
+        return next;
       }
 
       case "ADMIN_RANDOMIZE_TILES": {

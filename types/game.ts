@@ -218,6 +218,7 @@ export type GameEvent =
   | { type: "ADMIN_RANDOMIZE_BOARD" }
   | { type: "ADMIN_RANDOMIZE_TILES" }
   | { type: "ADMIN_SET_FOG_OF_WAR"; mode: "none" | "admin" | "all"; adminName?: string }
+  | { type: "ADMIN_RECALCULATE_FOG"; adminName?: string }
   | { type: "ADMIN_LOG_EVENT"; message: string; adminName?: string }
   | { type: "ADMIN_RANDOMIZE_DIFFICULTIES"; weights?: { easy: number; medium: number; hard: number }; gradient?: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
   | { type: "ADMIN_SAVE_GRADIENT_SETTINGS"; weights: { easy: number; medium: number; hard: number }; gradient: boolean; early?: { easy: number; medium: number; hard: number }; late?: { easy: number; medium: number; hard: number } }
