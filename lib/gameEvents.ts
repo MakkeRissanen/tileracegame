@@ -259,15 +259,16 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
         });
 
         // Determine vision range based on farthest position
+        // Design: Normal=5, Halfway=4, Last 15=3, Last 5=2
         let visionAhead;
         if (farthestPos >= MAX_TILE - 5) {
-          visionAhead = 1;
-        } else if (farthestPos >= MAX_TILE - 10) {
-          visionAhead = 2;
+          visionAhead = 2; // Last 5 tiles (tile 51+): 2 tiles ahead
+        } else if (farthestPos >= MAX_TILE - 15) {
+          visionAhead = 3; // Last 15 tiles (tile 41+): 3 tiles ahead  
         } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
-          visionAhead = 3;
+          visionAhead = 4; // Halfway point (tile 28+): 4 tiles ahead
         } else {
-          visionAhead = 4;
+          visionAhead = 5; // Normal (before halfway): 5 tiles ahead
         }
 
         // Reveal tiles from 1 up to farthest position + vision range (shared vision for all teams)
@@ -844,15 +845,16 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             });
 
             // Determine vision range based on position
+            // Design: Normal=5, Halfway=4, Last 15=3, Last 5=2
             let visionAhead;
             if (farthestPos >= MAX_TILE - 5) {
-              visionAhead = 1;
-            } else if (farthestPos >= MAX_TILE - 10) {
-              visionAhead = 2;
+              visionAhead = 2; // Last 5 tiles (tile 51+): 2 tiles ahead
+            } else if (farthestPos >= MAX_TILE - 15) {
+              visionAhead = 3; // Last 15 tiles (tile 41+): 3 tiles ahead
             } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
-              visionAhead = 3;
+              visionAhead = 4; // Halfway point (tile 28+): 4 tiles ahead
             } else {
-              visionAhead = 4;
+              visionAhead = 5; // Normal (before halfway): 5 tiles ahead
             }
 
             // Reveal tiles from 1 to farthest + vision (but not final tile)
@@ -894,15 +896,16 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
           });
 
           // Determine vision range based on position
+          // Design: Normal=5, Halfway=4, Last 15=3, Last 5=2
           let visionAhead;
           if (farthestPos >= MAX_TILE - 5) {
-            visionAhead = 1;
-          } else if (farthestPos >= MAX_TILE - 10) {
-            visionAhead = 2;
+            visionAhead = 2; // Last 5 tiles (tile 51+): 2 tiles ahead
+          } else if (farthestPos >= MAX_TILE - 15) {
+            visionAhead = 3; // Last 15 tiles (tile 41+): 3 tiles ahead
           } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
-            visionAhead = 3;
+            visionAhead = 4; // Halfway point (tile 28+): 4 tiles ahead
           } else {
-            visionAhead = 4;
+            visionAhead = 5; // Normal (before halfway): 5 tiles ahead
           }
 
           // Reveal tiles from 1 up to farthest position + vision range (shared vision for all teams)
@@ -1039,15 +1042,16 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             });
 
             // Determine vision range based on position
+            // Design: Normal=5, Halfway=4, Last 15=3, Last 5=2
             let visionAhead;
             if (farthestPos >= MAX_TILE - 5) {
-              visionAhead = 1;
-            } else if (farthestPos >= MAX_TILE - 10) {
-              visionAhead = 2;
+              visionAhead = 2; // Last 5 tiles (tile 51+): 2 tiles ahead
+            } else if (farthestPos >= MAX_TILE - 15) {
+              visionAhead = 3; // Last 15 tiles (tile 41+): 3 tiles ahead
             } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
-              visionAhead = 3;
+              visionAhead = 4; // Halfway point (tile 28+): 4 tiles ahead
             } else {
-              visionAhead = 4;
+              visionAhead = 5; // Normal (before halfway): 5 tiles ahead
             }
 
             // Reveal tiles from 1 to farthest + vision (but not final tile)
