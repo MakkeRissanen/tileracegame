@@ -29,6 +29,51 @@ function consumePowerup(gameState: GameState, teamId: string, powerupId: string)
 }
 
 /**
+ * Helper to update revealed tiles based on current team positions
+ * Uses the same dynamic vision logic as COMPLETE_RACE_TILE
+ */
+function updateVision(gameState: GameState): GameState {
+  const revealedTiles = new Set(gameState.revealedTiles || []);
+  
+  // Always reveal tile 1 (starting tile)
+  revealedTiles.add(1);
+
+  // Find farthest team position
+  let farthestPos = 1;
+  gameState.teams.forEach((team) => {
+    if (team.pos > farthestPos) {
+      farthestPos = team.pos;
+    }
+  });
+
+  // Determine vision range based on farthest position
+  // Design: Normal=5, Halfway=4, Last 15=3, Last 5=2
+  let visionAhead;
+  if (farthestPos >= MAX_TILE - 5) {
+    visionAhead = 2; // Last 5 tiles (tile 51+): 2 tiles ahead
+  } else if (farthestPos >= MAX_TILE - 15) {
+    visionAhead = 3; // Last 15 tiles (tile 41+): 3 tiles ahead  
+  } else if (farthestPos >= Math.floor(MAX_TILE / 2)) {
+    visionAhead = 4; // Halfway point (tile 28+): 4 tiles ahead
+  } else {
+    visionAhead = 5; // Normal (before halfway): 5 tiles ahead
+  }
+
+  // Reveal tiles from 1 up to farthest position + vision range (shared vision for all teams)
+  // But NEVER reveal the final tile until a team reaches it
+  for (let i = 1; i <= Math.min(farthestPos + visionAhead, MAX_TILE - 1); i++) {
+    revealedTiles.add(i);
+  }
+  
+  // Only reveal final tile if a team has reached it
+  if (farthestPos >= MAX_TILE) {
+    revealedTiles.add(MAX_TILE);
+  }
+
+  return { ...gameState, revealedTiles: Array.from(revealedTiles) };
+}
+
+/**
  * Handle USE_POWERUP event
  */
 export function handleUsePowerup(
@@ -81,6 +126,10 @@ export function handleUsePowerup(
     let next = consumePowerup(game, teamId, powerupId);
     const teams = next.teams.map((t) => (t.id === teamId ? { ...t, pos: dest } : t));
     next = { ...next, teams };
+    
+    // Update vision after moving forward
+    next = updateVision(next);
+    
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
@@ -123,6 +172,10 @@ export function handleUsePowerup(
       return t;
     });
     next = { ...next, teams };
+    
+    // Update vision after moving backward (important!)
+    next = updateVision(next);
+    
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
       next,
