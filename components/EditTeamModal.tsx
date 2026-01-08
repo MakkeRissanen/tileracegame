@@ -73,7 +73,7 @@ export default function EditTeamModal({
   };
 
   const handleUpdatePlayerPoints = (player: string, points: string) => {
-    const pointsValue = parseInt(points) || 0;
+    const pointsValue = parseFloat(points) || 0;
     setPlayerPoints({ ...playerPoints, [player]: pointsValue });
   };
 
@@ -352,6 +352,7 @@ export default function EditTeamModal({
                     <input
                       type="number"
                       min="0"
+                      step="0.1"
                       value={playerPoints[member] || 0}
                       onChange={(e) => handleUpdatePlayerPoints(member, e.target.value)}
                       className={`w-20 ${inputClass(isDark)}`}

@@ -518,20 +518,22 @@ export default function TileRaceGame() {
   const handleClaimPowerupWithPlayers = async (playerNames: string[]) => {
     if (!claimTeamId || claimSelectedPowerupTileId === null) return;
 
+    // Close modals immediately to prevent double-click
+    const teamId = claimTeamId;
+    const tileId = claimSelectedPowerupTileId;
+    setClaimTeamId(null);
+    setClaimSelectedPowerupTileId(null);
+    setClaimConfirmOpen(false);
+    setPowerupClaimPickerOpen(false);
+
     try {
       await dispatch({
         type: "CLAIM_POWERUP_TILE",
-        teamId: claimTeamId,
-        powerTileId: claimSelectedPowerupTileId,
+        teamId: teamId,
+        powerTileId: tileId,
         playerNames,
         ...(adminName && { adminName: adminName }),
       });
-      
-      // Close all modals
-      setClaimTeamId(null);
-      setClaimSelectedPowerupTileId(null);
-      setClaimConfirmOpen(false);
-      setPowerupClaimPickerOpen(false);
     } catch (err) {
       alert(`Failed to claim powerup: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
