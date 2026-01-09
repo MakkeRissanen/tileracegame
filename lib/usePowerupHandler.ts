@@ -490,12 +490,16 @@ export function handleUsePowerup(
   // Time Bomb
   if (powerupId === "timeBomb") {
     const currentTile = team.pos;
+    const currentCooldown = team.powerupCooldown || 0;
     let next = consumePowerup(game, teamId, powerupId);
     
-    // Place time bomb on current tile
+    // Place time bomb on current tile and restore cooldown (planting doesn't add cooldown)
     const timeBombTiles = { ...next.timeBombTiles };
     timeBombTiles[currentTile] = teamId;
-    next = { ...next, timeBombTiles };
+    const teams = next.teams.map((t) =>
+      t.id === teamId ? { ...t, powerupCooldown: currentCooldown } : t
+    );
+    next = { ...next, timeBombTiles, teams };
     
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
     const logEntry: LogEntry = {
@@ -802,12 +806,15 @@ export function handleUsePowerup(
     
     const randomReward = possibleRewards[Math.floor(Math.random() * possibleRewards.length)];
     
-    // Consume the mystery powerup
+    // Store the current cooldown before consuming
+    const currentCooldown = team.powerupCooldown || 0;
+    
+    // Consume the mystery powerup (this sets cooldown to 1, but we'll restore it)
     let next = consumePowerup(game, teamId, powerupId);
     
-    // Add the reward to inventory
+    // Add the reward to inventory and restore the original cooldown
     const teams = next.teams.map((t) =>
-      t.id === teamId ? { ...t, inventory: [...t.inventory, randomReward] } : t
+      t.id === teamId ? { ...t, inventory: [...t.inventory, randomReward], powerupCooldown: currentCooldown } : t
     );
     next = { ...next, teams };
     

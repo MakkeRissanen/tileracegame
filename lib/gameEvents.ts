@@ -226,7 +226,9 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
             playerNames.forEach((playerName) => {
               updatedPlayerPoints[playerName] = (updatedPlayerPoints[playerName] || 0) + pointsForDiff;
             });
-            // Decrement cooldown, minimum 0
+            
+            // Completing a tile always decrements cooldown, minimum 0
+            // This happens regardless of whether a bomb is triggered
             const newCooldown = Math.max(0, (t.powerupCooldown || 0) - 1);
             
             // If bomb triggered, clear claimedRaceTileRewards for tiles between bombPushedPos and nextPos (exclusive)
