@@ -38,6 +38,44 @@ function consumePowerup(gameState: GameState, teamId: string, powerupId: string)
 }
 
 /**
+ * Helper to check and trigger timebombs when a team moves to a position
+ * Returns updated game state with bomb effects applied
+ * IMPORTANT: A team cannot trigger their own bomb (bombPlacer !== teamId check)
+ */
+function checkAndTriggerTimeBomb(
+  gameState: GameState,
+  teamId: string,
+  newPos: number
+): { game: GameState; bombTriggered: boolean; bombPushedPos: number } {
+  const timeBombTiles = { ...(gameState.timeBombTiles || {}) };
+  const bombPlacer = timeBombTiles[newPos];
+  
+  // Check if there's a bomb and it wasn't placed by this team (cannot trigger own bomb)
+  if (bombPlacer && bombPlacer !== teamId) {
+    // Time bomb triggered! Push team back 2 tiles
+    const bombPushedPos = Math.max(1, newPos - 2);
+    // Remove the bomb after it's triggered
+    delete timeBombTiles[newPos];
+    
+    const teams = gameState.teams.map((t) => {
+      if (t.id === teamId) {
+        // Update team position and clear rewards between pushedPos and bombPos
+        const clearedRewards = (t.claimedRaceTileRewards || []).filter(
+          (tileNum) => tileNum < bombPushedPos || tileNum >= newPos
+        );
+        return { ...t, pos: bombPushedPos, claimedRaceTileRewards: clearedRewards };
+      }
+      return t;
+    });
+    
+    const next = { ...gameState, teams, timeBombTiles };
+    return { game: next, bombTriggered: true, bombPushedPos };
+  }
+  
+  return { game: gameState, bombTriggered: false, bombPushedPos: newPos };
+}
+
+/**
  * Helper to update revealed tiles based on current team positions
  * Uses the same dynamic vision logic as COMPLETE_RACE_TILE
  */
@@ -136,21 +174,43 @@ export function handleUsePowerup(
     const teams = next.teams.map((t) => (t.id === teamId ? { ...t, pos: dest } : t));
     next = { ...next, teams };
     
+    // Check for timebomb at destination
+    const bombResult = checkAndTriggerTimeBomb(next, teamId, dest);
+    next = bombResult.game;
+    const bombTriggered = bombResult.bombTriggered;
+    const finalPos = bombTriggered ? bombResult.bombPushedPos : dest;
+    
     // Update vision after moving forward
     next = updateVision(next);
     
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
+    const bombText = bombTriggered ? `\n💣 Time bomb triggered! Pushed back from Tile ${dest} to Tile ${finalPos}` : '';
     next = addLog(
       next,
       `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} (from ${tileDesc(
         next,
         before
-      )} → Current: ${tileDesc(next, dest)})`
+      )} → Current: ${tileDesc(next, finalPos)})${bombText}`
     );
+    
+    // Store bomb trigger info for Discord notification
+    if (bombTriggered) {
+      const bomberTeam = next.teams.find((t) => t.id === (next.timeBombTiles || {})[dest]);
+      if (bomberTeam || next.timeBombTiles) {
+        // Find bomber from the original bomb placer ID
+        const bombPlacer = Object.keys(next.timeBombTiles || {}).length > 0 
+          ? Object.entries(game.timeBombTiles || {}).find(([tile]) => Number(tile) === dest)?.[1]
+          : undefined;
+        if (bombPlacer) {
+          next = { ...next, lastBombTrigger: { bombPlacer, victim: teamId, tile: dest, pushedTo: finalPos, timestamp: Date.now() } };
+        }
+      }
+    }
+    
     // Store from/to tile numbers for Discord
     if (event.fromTileNumber === undefined) {
       (next as any)._lastEventFromTile = before;
-      (next as any)._lastEventToTile = dest;
+      (next as any)._lastEventToTile = finalPos;
     }
     return next;
   }
@@ -182,17 +242,33 @@ export function handleUsePowerup(
     });
     next = { ...next, teams };
     
+    // Check for timebomb at destination
+    const bombResult = checkAndTriggerTimeBomb(next, target.id, dest);
+    next = bombResult.game;
+    const bombTriggered = bombResult.bombTriggered;
+    const finalPos = bombTriggered ? bombResult.bombPushedPos : dest;
+    
     // Update vision after moving backward (important!)
     next = updateVision(next);
     
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
+    const bombText = bombTriggered ? `\n💣 Time bomb triggered! Pushed back from Tile ${dest} to Tile ${finalPos}` : '';
     next = addLog(
       next,
       `${adminPrefix}${team.name} used ${powerupLabel(powerupId)} on ${target.name} (from ${tileDesc(
         next,
         before
-      )} → Current: ${tileDesc(next, dest)})`
+      )} → Current: ${tileDesc(next, finalPos)})${bombText}`
     );
+    
+    // Store bomb trigger info for Discord notification
+    if (bombTriggered) {
+      const bombPlacer = Object.entries(game.timeBombTiles || {}).find(([tile]) => Number(tile) === dest)?.[1];
+      if (bombPlacer) {
+        next = { ...next, lastBombTrigger: { bombPlacer, victim: target.id, tile: dest, pushedTo: finalPos, timestamp: Date.now() } };
+      }
+    }
+    
     return next;
   }
 
