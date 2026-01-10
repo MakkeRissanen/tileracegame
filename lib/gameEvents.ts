@@ -1858,6 +1858,10 @@ function applyEventInternal(game: GameState, event: GameEvent): GameState {
                 changes.push(`position: ${oldValue} → ${newValue}`);
               } else if (key === "powerupCooldown") {
                 changes.push(`cooldown: ${oldValue ? "ON" : "OFF"} → ${newValue ? "ON" : "OFF"}`);
+              } else if (key === "insuredPowerups") {
+                const oldLen = Array.isArray(oldValue) ? oldValue.length : 0;
+                const newLen = Array.isArray(newValue) ? (newValue as any[]).length : 0;
+                changes.push(`insured powerups: ${oldLen} → ${newLen}`);
               } else {
                 changes.push(`${key}: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
               }

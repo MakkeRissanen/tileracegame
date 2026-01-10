@@ -27,6 +27,7 @@ import ChangePasswordModal from "./ChangePasswordModal";
 import SetTeamPasswordsModal from "./SetTeamPasswordsModal";
 import UndoHistoryModal from "./UndoHistoryModal";
 import EditTeamModal from "./EditTeamModal";
+import ManageInsuredPowerupsModal from "./ManageInsuredPowerupsModal";
 import EditPowerupTileModal from "./EditPowerupTileModal";
 import EditPoolTaskModal from "./EditPoolTaskModal";
 import ClaimPowerupConfirmModal from "./ClaimPowerupConfirmModal";
@@ -65,6 +66,7 @@ export default function TileRaceGame() {
   const [showUndoHistoryModal, setShowUndoHistoryModal] = useState(false);
   const [showRulebookModal, setShowRulebookModal] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [managingInsuredTeamId, setManagingInsuredTeamId] = useState<string | null>(null);
   const [editingPowerupTile, setEditingPowerupTile] = useState<PowerupTile | null>(null);
   const [editingPoolTask, setEditingPoolTask] = useState<PoolTask | null>(null);
   
@@ -403,6 +405,10 @@ export default function TileRaceGame() {
     setEditingTeamId(teamId);
   };
 
+  const handleManageInsured = (teamId: string) => {
+    setManagingInsuredTeamId(teamId);
+  };
+
   const handleUpdateTeam = async (teamId: string, updates: Partial<Team>) => {
     try {
       // Calculate changes for Discord formatting
@@ -421,6 +427,10 @@ export default function TileRaceGame() {
               changes.push(`position: ${oldValue} → ${newValue}`);
             } else if (key === "powerupCooldown") {
               changes.push(`cooldown: ${oldValue ? "ON" : "OFF"} → ${newValue ? "ON" : "OFF"}`);
+            } else if (key === "insuredPowerups") {
+              const oldLen = Array.isArray(oldValue) ? oldValue.length : 0;
+              const newLen = Array.isArray(newValue) ? (newValue as any[]).length : 0;
+              changes.push(`insured powerups: ${oldLen} → ${newLen}`);
             } else if (key === "discordWebhookSlot") {
               const oldSlot = oldValue === null || oldValue === undefined ? "None" : `Channel ${oldValue}`;
               const newSlot = newValue === null || newValue === undefined ? "None" : `Channel ${newValue}`;
@@ -444,6 +454,7 @@ export default function TileRaceGame() {
         changes,
       });
       setEditingTeamId(null);
+      setManagingInsuredTeamId(null);
     } catch (err) {
       alert(`Failed to update team: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
@@ -718,6 +729,7 @@ export default function TileRaceGame() {
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
+            onManageInsured={handleManageInsured}
             onClearCooldown={handleClearCooldown}
             onAdminToggleCooldown={handleAdminToggleCooldown}
             onEditPoolTask={handleEditPoolTask}
@@ -741,6 +753,7 @@ export default function TileRaceGame() {
             onOpenClaimPowerup={handleOpenClaimPowerup}
             onAdminUsePowerup={handleAdminUsePowerup}
             onEditTeam={handleEditTeam}
+            onManageInsured={handleManageInsured}
             onClearCooldown={handleClearCooldown}
             onAdminToggleCooldown={handleAdminToggleCooldown}
             onEditPoolTask={handleEditPoolTask}
@@ -938,6 +951,21 @@ export default function TileRaceGame() {
               game={game}
               isMasterAdmin={isMasterAdmin}
               onClose={() => setEditingTeamId(null)}
+              onUpdateTeam={handleUpdateTeam}
+            />
+          ) : null;
+        })()}
+
+        {/* Manage Insured Powerups Modal */}
+        {managingInsuredTeamId && (() => {
+          const team = game.teams.find((t) => t.id === managingInsuredTeamId);
+          return team ? (
+            <ManageInsuredPowerupsModal
+              isOpen={true}
+              isDark={isDark}
+              team={team}
+              game={game}
+              onClose={() => setManagingInsuredTeamId(null)}
               onUpdateTeam={handleUpdateTeam}
             />
           ) : null;

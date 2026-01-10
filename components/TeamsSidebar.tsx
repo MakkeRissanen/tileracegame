@@ -15,6 +15,7 @@ interface TeamsSidebarProps {
   onOpenClaimPowerup?: (teamId: string) => void;
   onAdminUsePowerup?: (teamId: string) => void;
   onEditTeam?: (teamId: string) => void;
+  onManageInsured?: (teamId: string) => void;
   onClearCooldown?: (teamId: string) => void;
   onAdminToggleCooldown?: (teamId: string, currentValue: number) => void;
   dispatch: (event: any) => void;
@@ -32,6 +33,7 @@ function TeamsSidebar({
   onOpenClaimPowerup,
   onAdminUsePowerup,
   onEditTeam,
+  onManageInsured,
   onClearCooldown,
   onAdminToggleCooldown,
   dispatch,
@@ -144,16 +146,26 @@ function TeamsSidebar({
               ${isMyTeam ? "ring-2 ring-blue-500" : ""}
             `}
           >
-            {/* Admin Edit Team Button at Top */}
+            {/* Admin Buttons at Top */}
             {isAdmin && (
-              <Button
-                variant="secondary"
-                isDark={isDark}
-                className="w-full text-xs py-1 md:py-1.5 mb-1.5 md:mb-2"
-                onClick={() => onEditTeam && onEditTeam(team.id)}
-              >
-                ✏️ Edit Team
-              </Button>
+              <div className="space-y-1.5 md:space-y-2 mb-1.5 md:mb-2">
+                <Button
+                  variant="secondary"
+                  isDark={isDark}
+                  className="w-full text-xs py-1 md:py-1.5"
+                  onClick={() => onEditTeam && onEditTeam(team.id)}
+                >
+                  ✏️ Edit Team
+                </Button>
+                <Button
+                  variant="secondary"
+                  isDark={isDark}
+                  className="w-full text-xs py-1 md:py-1.5"
+                  onClick={() => onManageInsured && onManageInsured(team.id)}
+                >
+                  🛡️ Manage Insured Powerups
+                </Button>
+              </div>
             )}
 
             {/* Team Header */}
