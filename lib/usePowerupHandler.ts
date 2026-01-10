@@ -22,7 +22,16 @@ function consumePowerup(gameState: GameState, teamId: string, powerupId: string)
     if (t.id !== teamId) return t;
     const nextInv = [...(t.inventory || [])];
     const i = nextInv.indexOf(powerupId);
-    if (i >= 0) nextInv.splice(i, 1);
+    if (i >= 0) {
+      nextInv.splice(i, 1);
+      
+      // Update insured indices after removal
+      const insuredPowerups = (t.insuredPowerups || [])
+        .filter(idx => idx !== i) // Remove insurance for this powerup
+        .map(idx => idx > i ? idx - 1 : idx); // Adjust indices after removal
+      
+      return { ...t, inventory: nextInv, insuredPowerups, powerupCooldown: 1 };
+    }
     return { ...t, inventory: nextInv, powerupCooldown: 1 };
   });
   return { ...gameState, teams: teamsConsumed };
