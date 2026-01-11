@@ -667,7 +667,7 @@ export default function RulebookModal({ isOpen, onClose, isDark }: RulebookModal
                     <li>Consumes the Mystery Powerup</li>
                     <li>Adds the reward to your inventory immediately</li>
                     <li>Popup notification shows what you received</li>
-                    <li>Triggers powerup cooldown</li>
+                    <li>Does NOT trigger powerup cooldown</li>
                   </ul>
                 </div>
               </section>

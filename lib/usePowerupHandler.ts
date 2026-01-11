@@ -575,16 +575,30 @@ export function handleUsePowerup(
   // Time Bomb
   if (powerupId === "timeBomb") {
     const currentTile = team.pos;
-    const currentCooldown = team.powerupCooldown || 0;
-    let next = consumePowerup(game, teamId, powerupId);
     
-    // Place time bomb on current tile and restore cooldown (planting doesn't add cooldown)
-    const timeBombTiles = { ...next.timeBombTiles };
+    // Remove time bomb from inventory WITHOUT triggering cooldown
+    const teams = game.teams.map((t) => {
+      if (t.id !== teamId) return t;
+      const nextInv = [...(t.inventory || [])];
+      const i = nextInv.indexOf(powerupId);
+      if (i >= 0) {
+        nextInv.splice(i, 1);
+        
+        // Update insured indices after removal
+        const insuredPowerups = (t.insuredPowerups || [])
+          .filter(idx => idx !== i) // Remove insurance for this powerup
+          .map(idx => idx > i ? idx - 1 : idx); // Adjust indices after removal
+        
+        // Don't change cooldown when planting time bomb
+        return { ...t, inventory: nextInv, insuredPowerups };
+      }
+      return t;
+    });
+    
+    // Place time bomb on current tile
+    const timeBombTiles = { ...game.timeBombTiles };
     timeBombTiles[currentTile] = teamId;
-    const teams = next.teams.map((t) =>
-      t.id === teamId ? { ...t, powerupCooldown: currentCooldown } : t
-    );
-    next = { ...next, timeBombTiles, teams };
+    let next = { ...game, timeBombTiles, teams };
     
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
     const logEntry: LogEntry = {
@@ -891,17 +905,26 @@ export function handleUsePowerup(
     
     const randomReward = possibleRewards[Math.floor(Math.random() * possibleRewards.length)];
     
-    // Store the current cooldown before consuming
-    const currentCooldown = team.powerupCooldown || 0;
+    // Remove mystery powerup from inventory WITHOUT triggering cooldown
+    const teams = game.teams.map((t) => {
+      if (t.id !== teamId) return t;
+      const nextInv = [...(t.inventory || [])];
+      const i = nextInv.indexOf(powerupId);
+      if (i >= 0) {
+        nextInv.splice(i, 1);
+        
+        // Update insured indices after removal
+        const insuredPowerups = (t.insuredPowerups || [])
+          .filter(idx => idx !== i) // Remove insurance for this powerup
+          .map(idx => idx > i ? idx - 1 : idx); // Adjust indices after removal
+        
+        // Add reward to inventory without changing cooldown
+        return { ...t, inventory: [...nextInv, randomReward], insuredPowerups };
+      }
+      return t;
+    });
     
-    // Consume the mystery powerup (this sets cooldown to 1, but we'll restore it)
-    let next = consumePowerup(game, teamId, powerupId);
-    
-    // Add the reward to inventory and restore the original cooldown
-    const teams = next.teams.map((t) =>
-      t.id === teamId ? { ...t, inventory: [...t.inventory, randomReward], powerupCooldown: currentCooldown } : t
-    );
-    next = { ...next, teams };
+    let next = { ...game, teams };
     
     const adminPrefix = adminName ? `[${adminName}]\n` : '';
     next = addLog(
